@@ -1,0 +1,6 @@
+{
+  "name": "실뷰(SilView)",
+  "description": "광고 없는 초간편 이미지 뷰어. PC에 설치하여 데스크탑 앱처럼 사용 가능한 PWA 지원.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

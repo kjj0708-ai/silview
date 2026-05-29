@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#2563EB"/>
+  <!-- Photo frame -->
+  <rect x="76" y="124" width="360" height="264" rx="28" fill="none" stroke="white" stroke-width="22" opacity="0.95"/>
+  <!-- Landscape silhouette -->
+  <path d="M100 354 L205 238 L268 282 L350 192 L412 354 Z" fill="white" fill-opacity="0.93"/>
+  <!-- Sun -->
+  <circle cx="166" cy="214" r="44" fill="white"/>
+</svg>
