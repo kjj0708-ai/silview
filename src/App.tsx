@@ -603,7 +603,7 @@ export default function App() {
         <div className="flex items-center gap-5">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <img src="/500-icon.png" alt="실뷰" className="w-7 h-7 rounded-lg object-cover" />
+            <img src={`${import.meta.env.BASE_URL}500-icon.png`} alt="실뷰" className="w-7 h-7 rounded-lg object-cover" />
             <span className="text-sm font-bold tracking-tight text-gray-900">실뷰</span>
           </div>
 

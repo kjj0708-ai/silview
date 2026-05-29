@@ -6,12 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
-  const isGHPages = process.env.GITHUB_PAGES === 'true';
-  const base = isGHPages ? '/silview/' : '/';
   return {
-    base,
     plugins: [
-      react(), 
+      react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
@@ -24,17 +21,17 @@ export default defineConfig(({mode}) => {
           theme_color: '#2563EB',
           background_color: '#111827',
           display: 'standalone',
-          start_url: isGHPages ? '/silview/' : '/',
-          scope: isGHPages ? '/silview/' : '/',
+          start_url: '/',
+          scope: '/',
           icons: [
             {
-              src: isGHPages ? '/silview/500-icon.png' : '/500-icon.png',
+              src: '/500-icon.png',
               sizes: '500x500',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: isGHPages ? '/silview/500-icon.png' : '/500-icon.png',
+              src: '/500-icon.png',
               sizes: '500x500',
               type: 'image/png',
               purpose: 'maskable'
@@ -43,7 +40,7 @@ export default defineConfig(({mode}) => {
           // File Handler API — allows setting SilView as default image viewer on Windows
           file_handlers: [
             {
-              action: isGHPages ? '/silview/' : '/',
+              action: '/',
               accept: {
                 'image/jpeg':  ['.jpg', '.jpeg'],
                 'image/png':   ['.png'],
@@ -73,8 +70,6 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };
