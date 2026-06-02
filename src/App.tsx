@@ -968,25 +968,28 @@ export default function App() {
                 style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
               />
 
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={files[currentIndex].id}
-                  initial={{ opacity: 0, scaleX: 0.96, scaleY: 0.96 }}
-                  animate={{ opacity: 1, scaleX: (flip ? -1 : 1) * zoom, scaleY: zoom, rotate: rotation, x: position.x, y: position.y }}
-                  exit={{ opacity: 0, scaleX: 1.04, scaleY: 1.04 }}
-                  transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-                  drag dragMomentum={false}
-                  onDragEnd={(_, info) => setPosition(prev => ({ x: prev.x + info.offset.x, y: prev.y + info.offset.y }))}
-                >
-                  <img
-                    src={files[currentIndex].url}
-                    alt={files[currentIndex].name}
-                    className="max-w-[92vw] max-h-[72vh] md:max-w-[80vw] md:max-h-[68vh] object-contain pointer-events-none select-none"
-                    style={{ filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.6))' }}
-                    draggable={false}
-                  />
-                </motion.div>
-              </AnimatePresence>
+              {/* 드래그 레이어: 패닝 전용. 진입 애니메이션 없이 항상 표시 (Framer animate 미사용으로 stall 방지) */}
+              <motion.div
+                key={files[currentIndex].id}
+                className="relative"
+                drag
+                dragMomentum={false}
+                style={{ x: position.x, y: position.y }}
+                onDragEnd={(_, info) => setPosition(prev => ({ x: prev.x + info.offset.x, y: prev.y + info.offset.y }))}
+              >
+                {/* 변환 레이어: 줌/회전/반전을 순수 CSS transform으로 (Framer와 독립) */}
+                <img
+                  src={files[currentIndex].url}
+                  alt={files[currentIndex].name}
+                  className="max-w-[92vw] max-h-[72vh] md:max-w-[80vw] md:max-h-[68vh] object-contain pointer-events-none select-none"
+                  style={{
+                    filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.6))',
+                    transform: `scale(${zoom}) rotate(${rotation}deg) scaleX(${flip ? -1 : 1})`,
+                    transition: 'transform 0.18s ease-out',
+                  }}
+                  draggable={false}
+                />
+              </motion.div>
 
               {/* Navigation */}
               {files.length > 1 && (
