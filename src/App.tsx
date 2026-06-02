@@ -726,71 +726,70 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden" onClick={() => setShowFileMenu(false)}>
+      {/* ── Mobile Gallery Strip (상단 고정 행) ──────────────── */}
+      <AnimatePresence>
+        {showGallery && isMobile && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 94, opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeInOut' }}
+            className="bg-[#F5F5F7] border-b border-gray-200 flex items-center gap-2 px-3 overflow-x-auto flex-shrink-0"
+          >
+            {files.length === 0 ? (
+              <div className="flex items-center gap-2 text-gray-300">
+                <LucideImage size={14} /><span className="text-[10px] whitespace-nowrap">이미지 없음</span>
+              </div>
+            ) : files.map((file, idx) => (
+              <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+                className={`flex-shrink-0 w-[68px] h-[68px] rounded-xl overflow-hidden cursor-pointer transition-all ${currentIndex === idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F5F7] scale-105' : 'opacity-55 hover:opacity-90'}`}
+              >
+                <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* ── Gallery Sidebar ─────────────────────────────────── */}
+      <div className="flex-1 flex overflow-hidden" onClick={() => setShowFileMenu(false)}>
+
+        {/* ── Desktop Gallery Sidebar ──────────────────────────── */}
         <AnimatePresence>
-          {showGallery && (
+          {showGallery && !isMobile && (
             <motion.aside
-              initial={isMobile ? { height: 0, opacity: 0 } : { width: 0, opacity: 0 }}
-              animate={isMobile ? { height: 110, opacity: 1 } : { width: 200, opacity: 1 }}
-              exit={isMobile ? { height: 0, opacity: 0 } : { width: 0, opacity: 0 }}
+              initial={{ width: 0, opacity: 0 }} animate={{ width: 200, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.18, ease: 'easeInOut' }}
-              className={`bg-[#F5F5F7] overflow-hidden flex-shrink-0 ${isMobile ? 'w-full border-b border-gray-200 flex flex-row' : 'border-r border-gray-200 flex flex-col'}`}
+              className="border-r border-gray-200 bg-[#F5F5F7] flex flex-col overflow-hidden flex-shrink-0"
             >
-              {/* Desktop: 헤더 + 세로 목록 */}
-              {!isMobile && (
-                <>
-                  <div className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
-                      Library <span className="text-gray-300 normal-case font-normal">({files.length})</span>
-                    </span>
-                    <button onClick={() => folderInputRef.current?.click()} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
-                      <FolderOpen size={12} />
-                    </button>
+              <div className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
+                  Library <span className="text-gray-300 normal-case font-normal">({files.length})</span>
+                </span>
+                <button onClick={() => folderInputRef.current?.click()} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
+                  <FolderOpen size={12} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+                {files.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-32 text-gray-300 gap-2 mt-4">
+                    <LucideImage size={22} />
+                    <span className="text-[10px]">이미지 없음</span>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-                    {files.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-32 text-gray-300 gap-2 mt-4">
-                        <LucideImage size={22} />
-                        <span className="text-[10px]">이미지 없음</span>
-                      </div>
-                    ) : files.map((file, idx) => (
-                      <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
-                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer group transition-all ${currentIndex === idx ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-200/60'}`}
-                      >
-                        <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
-                          <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] truncate leading-tight ${currentIndex === idx ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'}`}>{file.name}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{formatSize(file.size)}</p>
-                        </div>
-                        <button onClick={e => removeFile(file.id, e)} className="p-1 hover:bg-red-100 hover:text-red-500 rounded-md text-gray-300 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
-                          <X size={11} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Mobile: 가로 스크롤 썸네일 스트립 */}
-              {isMobile && (
-                <div className="flex items-center gap-2 px-2 overflow-x-auto h-full w-full">
-                  {files.length === 0 ? (
-                    <div className="flex items-center gap-2 text-gray-300 px-2">
-                      <LucideImage size={16} /><span className="text-[10px] whitespace-nowrap">이미지 없음</span>
-                    </div>
-                  ) : files.map((file, idx) => (
-                    <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
-                      className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden cursor-pointer transition-all ${currentIndex === idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F5F7] scale-105' : 'opacity-60 hover:opacity-90'}`}
-                    >
+                ) : files.map((file, idx) => (
+                  <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+                    className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer group transition-all ${currentIndex === idx ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-200/60'}`}
+                  >
+                    <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
                       <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[11px] truncate leading-tight ${currentIndex === idx ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'}`}>{file.name}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{formatSize(file.size)}</p>
+                    </div>
+                    <button onClick={e => removeFile(file.id, e)} className="p-1 hover:bg-red-100 hover:text-red-500 rounded-md text-gray-300 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </motion.aside>
           )}
         </AnimatePresence>
