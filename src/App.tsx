@@ -30,6 +30,7 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showGallery, setShowGallery] = useState(() => window.innerWidth >= 768);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -93,6 +94,12 @@ export default function App() {
   const blobUrlsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     return () => { blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url)); };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   useEffect(() => {
@@ -471,20 +478,23 @@ export default function App() {
     const cy = (canvas.height! / 2 - vpt[5]) / z;
 
     let obj: fabric.Object | undefined;
-    // 기존 대비 3배 크기
+    // 기존 대비 3배 크기, 선두께 9px
     if (type === 'rect')
-      obj = new fabric.Rect({ width: 360, height: 240, fill: 'transparent', stroke: brushColor, strokeWidth: 3, strokeDashArray, left: cx - 180, top: cy - 120 });
+      obj = new fabric.Rect({ width: 360, height: 240, fill: 'transparent', stroke: brushColor, strokeWidth: 9, strokeDashArray, left: cx - 180, top: cy - 120 });
     else if (type === 'circle')
-      obj = new fabric.Circle({ radius: 150, fill: 'transparent', stroke: brushColor, strokeWidth: 3, strokeDashArray, left: cx - 150, top: cy - 150 });
+      obj = new fabric.Circle({ radius: 150, fill: 'transparent', stroke: brushColor, strokeWidth: 9, strokeDashArray, left: cx - 150, top: cy - 150 });
     else if (type === 'line')
-      obj = new fabric.Line([0, 0, 450, 0], { stroke: brushColor, strokeWidth: 3, strokeDashArray, strokeLineCap: 'round', left: cx - 225, top: cy });
+      obj = new fabric.Line([0, 0, 450, 0], { stroke: brushColor, strokeWidth: 9, strokeDashArray, strokeLineCap: 'round', left: cx - 225, top: cy });
     else if (type === 'arrow') {
-      // Arrow: horizontal body + arrowhead
-      obj = new fabric.Path('M 0 0 L 370 0 M 340 -28 L 450 0 L 340 28', {
-        stroke: brushColor, strokeWidth: 3, fill: '',
-        strokeLineCap: 'round', strokeLineJoin: 'round',
-        left: cx - 225, top: cy - 14,
-      });
+      // 화살표: 선 몸통(두께 9) + 정삼각형 헤드(밑변 60, 높이 52)
+      // 정삼각형: base=60, height=60*√3/2≈52
+      const sw = 9, th = 52, tb = 30; // th=triangle height, tb=triangle half-base
+      const bEnd = 450 - th; // body ends at 398
+      obj = new fabric.Path(
+        `M 0 ${-sw / 2} L ${bEnd} ${-sw / 2} L ${bEnd} ${-tb} L 450 0 L ${bEnd} ${tb} L ${bEnd} ${sw / 2} L 0 ${sw / 2} Z`,
+        { fill: brushColor, stroke: 'transparent', left: cx - 225, top: cy - tb }
+      );
+      (obj as any).arrowShape = true; // 화살표 식별용 플래그
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
 
@@ -508,7 +518,9 @@ export default function App() {
     const obj = selectedObject;
     const strokeDashArray = isDashed ? [5, 5] : undefined;
     let needsRender = false;
-    if (['rect', 'circle', 'line', 'path'].includes(obj.type ?? '')) {
+    if ((obj as any).arrowShape) {
+      if (obj.fill !== brushColor) { obj.set({ fill: brushColor }); needsRender = true; }
+    } else if (['rect', 'circle', 'line', 'path'].includes(obj.type ?? '')) {
       if (obj.stroke !== brushColor || JSON.stringify(obj.strokeDashArray) !== JSON.stringify(strokeDashArray)) {
         obj.set({ stroke: brushColor, strokeDashArray }); needsRender = true;
       }
@@ -616,13 +628,14 @@ export default function App() {
           </div>
 
           {/* Nav */}
-          <nav className="hidden md:flex items-center text-xs font-medium text-gray-500">
+          <nav className="flex items-center text-xs font-medium text-gray-500">
             <div className="relative">
               <button
                 onClick={() => setShowFileMenu(!showFileMenu)}
-                className={`px-3 py-1.5 rounded-md transition-colors ${showFileMenu ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-100'}`}
+                className={`px-2 md:px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${showFileMenu ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-100'}`}
               >
-                파일
+                <Upload size={12} className="md:hidden" />
+                <span className="hidden md:inline">파일</span>
               </button>
               <AnimatePresence>
                 {showFileMenu && (
@@ -656,15 +669,17 @@ export default function App() {
             </div>
             <button
               onClick={() => currentIndex !== null && setIsEditing(!isEditing)}
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${isEditing ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`}
+              className={`px-2 md:px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${isEditing ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`}
             >
-              <Edit3 size={12} /> {isEditing ? '뷰어' : '편집'}
+              <Edit3 size={12} />
+              <span className="hidden md:inline">{isEditing ? '뷰어' : '편집'}</span>
             </button>
             <button
               onClick={() => setShowGallery(!showGallery)}
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${showGallery ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-100'}`}
+              className={`px-2 md:px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${showGallery ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-100'}`}
             >
-              <Grid size={12} /> 라이브러리
+              <Grid size={12} />
+              <span className="hidden md:inline">라이브러리</span>
             </button>
           </nav>
         </div>
@@ -711,54 +726,71 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden" onClick={() => setShowFileMenu(false)}>
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden" onClick={() => setShowFileMenu(false)}>
 
         {/* ── Gallery Sidebar ─────────────────────────────────── */}
         <AnimatePresence>
           {showGallery && (
             <motion.aside
-              initial={{ width: 0, opacity: 0 }} animate={{ width: 200, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
+              initial={isMobile ? { height: 0, opacity: 0 } : { width: 0, opacity: 0 }}
+              animate={isMobile ? { height: 110, opacity: 1 } : { width: 200, opacity: 1 }}
+              exit={isMobile ? { height: 0, opacity: 0 } : { width: 0, opacity: 0 }}
               transition={{ duration: 0.18, ease: 'easeInOut' }}
-              className="border-r border-gray-200 bg-[#F5F5F7] flex flex-col overflow-hidden flex-shrink-0"
+              className={`bg-[#F5F5F7] overflow-hidden flex-shrink-0 ${isMobile ? 'w-full border-b border-gray-200 flex flex-row' : 'border-r border-gray-200 flex flex-col'}`}
             >
-              <div className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
-                  Library <span className="text-gray-300 normal-case font-normal">({files.length})</span>
-                </span>
-                <button onClick={() => folderInputRef.current?.click()} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
-                  <FolderOpen size={12} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-                {files.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 text-gray-300 gap-2 mt-4">
-                    <LucideImage size={22} />
-                    <span className="text-[10px]">이미지 없음</span>
-                  </div>
-                ) : files.map((file, idx) => (
-                  <div
-                    key={file.id}
-                    onClick={() => { setCurrentIndex(idx); resetViewer(); }}
-                    className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer group transition-all ${currentIndex === idx ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-200/60'}`}
-                  >
-                    {/* Thumbnail */}
-                    <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
-                      <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[11px] truncate leading-tight ${currentIndex === idx ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'}`}>{file.name}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatSize(file.size)}</p>
-                    </div>
-                    <button
-                      onClick={e => removeFile(file.id, e)}
-                      className="p-1 hover:bg-red-100 hover:text-red-500 rounded-md text-gray-300 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                    >
-                      <X size={11} />
+              {/* Desktop: 헤더 + 세로 목록 */}
+              {!isMobile && (
+                <>
+                  <div className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
+                      Library <span className="text-gray-300 normal-case font-normal">({files.length})</span>
+                    </span>
+                    <button onClick={() => folderInputRef.current?.click()} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
+                      <FolderOpen size={12} />
                     </button>
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+                    {files.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-32 text-gray-300 gap-2 mt-4">
+                        <LucideImage size={22} />
+                        <span className="text-[10px]">이미지 없음</span>
+                      </div>
+                    ) : files.map((file, idx) => (
+                      <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer group transition-all ${currentIndex === idx ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-200/60'}`}
+                      >
+                        <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
+                          <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] truncate leading-tight ${currentIndex === idx ? 'text-gray-900 font-semibold' : 'text-gray-600 font-medium'}`}>{file.name}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{formatSize(file.size)}</p>
+                        </div>
+                        <button onClick={e => removeFile(file.id, e)} className="p-1 hover:bg-red-100 hover:text-red-500 rounded-md text-gray-300 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Mobile: 가로 스크롤 썸네일 스트립 */}
+              {isMobile && (
+                <div className="flex items-center gap-2 px-2 overflow-x-auto h-full w-full">
+                  {files.length === 0 ? (
+                    <div className="flex items-center gap-2 text-gray-300 px-2">
+                      <LucideImage size={16} /><span className="text-[10px] whitespace-nowrap">이미지 없음</span>
+                    </div>
+                  ) : files.map((file, idx) => (
+                    <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+                      className={`flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden cursor-pointer transition-all ${currentIndex === idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F5F7] scale-105' : 'opacity-60 hover:opacity-90'}`}
+                    >
+                      <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.aside>
           )}
         </AnimatePresence>
