@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight,
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink,
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -607,7 +607,7 @@ export default function App() {
     <div className="relative w-full h-screen flex flex-col font-sans select-none text-[#1F2937]">
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="h-12 border-b border-gray-200 bg-white flex items-center justify-between px-4 z-50 flex-shrink-0">
+      <header className="h-12 border-b border-gray-200 bg-white flex items-center px-4 z-50 flex-shrink-0 gap-3">
         <div className="flex items-center gap-5">
           {/* Logo */}
           <div className="flex items-center gap-2">
@@ -667,6 +667,20 @@ export default function App() {
               <Grid size={12} /> 라이브러리
             </button>
           </nav>
+        </div>
+
+        {/* Banner */}
+        <div className="flex-1 flex justify-center">
+          <a
+            href="https://choshg.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-white whitespace-nowrap transition-all hover:scale-[1.03] hover:shadow-md hover:shadow-blue-500/30"
+            style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%)' }}
+          >
+            대한민국 모든 공무원을 위한 4가지 해법 : 알아보기
+            <ExternalLink size={11} className="opacity-80" />
+          </a>
         </div>
 
         {/* Right controls */}
