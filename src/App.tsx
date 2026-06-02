@@ -971,9 +971,9 @@ export default function App() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={files[currentIndex].id}
-                  initial={{ opacity: 0, scale: 0.96 }}
+                  initial={{ opacity: 0, scaleX: 0.96, scaleY: 0.96 }}
                   animate={{ opacity: 1, scaleX: (flip ? -1 : 1) * zoom, scaleY: zoom, rotate: rotation, x: position.x, y: position.y }}
-                  exit={{ opacity: 0, scale: 1.04 }}
+                  exit={{ opacity: 0, scaleX: 1.04, scaleY: 1.04 }}
                   transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
                   drag dragMomentum={false}
                   onDragEnd={(_, info) => setPosition(prev => ({ x: prev.x + info.offset.x, y: prev.y + info.offset.y }))}
