@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen,
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight,
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -458,7 +458,7 @@ export default function App() {
     };
   }, [isEditing, currentIndex, files, saveHistory]);
 
-  const addShape = (type: 'rect' | 'circle' | 'text' | 'line') => {
+  const addShape = (type: 'rect' | 'circle' | 'text' | 'line' | 'arrow') => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
     saveHistory();
@@ -478,7 +478,14 @@ export default function App() {
       obj = new fabric.Circle({ radius: 150, fill: 'transparent', stroke: brushColor, strokeWidth: 3, strokeDashArray, left: cx - 150, top: cy - 150 });
     else if (type === 'line')
       obj = new fabric.Line([0, 0, 450, 0], { stroke: brushColor, strokeWidth: 3, strokeDashArray, strokeLineCap: 'round', left: cx - 225, top: cy });
-    else if (type === 'text')
+    else if (type === 'arrow') {
+      // Arrow: horizontal body + arrowhead
+      obj = new fabric.Path('M 0 0 L 370 0 M 340 -28 L 450 0 L 340 28', {
+        stroke: brushColor, strokeWidth: 3, fill: '',
+        strokeLineCap: 'round', strokeLineJoin: 'round',
+        left: cx - 225, top: cy - 14,
+      });
+    } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
 
     if (obj) {
@@ -501,7 +508,7 @@ export default function App() {
     const obj = selectedObject;
     const strokeDashArray = isDashed ? [5, 5] : undefined;
     let needsRender = false;
-    if (['rect', 'circle', 'line'].includes(obj.type ?? '')) {
+    if (['rect', 'circle', 'line', 'path'].includes(obj.type ?? '')) {
       if (obj.stroke !== brushColor || JSON.stringify(obj.strokeDashArray) !== JSON.stringify(strokeDashArray)) {
         obj.set({ stroke: brushColor, strokeDashArray }); needsRender = true;
       }
@@ -592,6 +599,7 @@ export default function App() {
     { type: 'rect' as const, Icon: Square, label: '사각형' },
     { type: 'circle' as const, Icon: Circle, label: '원형' },
     { type: 'line' as const, Icon: Minus, label: '선' },
+    { type: 'arrow' as const, Icon: MoveRight, label: '화살표' },
     { type: 'text' as const, Icon: Type, label: '텍스트' },
   ];
 
