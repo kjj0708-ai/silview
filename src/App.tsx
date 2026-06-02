@@ -30,7 +30,7 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState(false);
-  const [showGallery, setShowGallery] = useState(true);
+  const [showGallery, setShowGallery] = useState(() => window.innerWidth >= 768);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
@@ -950,7 +950,7 @@ export default function App() {
                   <img
                     src={files[currentIndex].url}
                     alt={files[currentIndex].name}
-                    className="max-w-[80vw] max-h-[68vh] object-contain pointer-events-none select-none"
+                    className="max-w-[92vw] max-h-[72vh] md:max-w-[80vw] md:max-h-[68vh] object-contain pointer-events-none select-none"
                     style={{ filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.6))' }}
                     draggable={false}
                   />
