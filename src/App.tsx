@@ -216,7 +216,7 @@ export default function App() {
     const canvas = fabricCanvasRef.current;
     const blurredImg = canvas.getObjects().find(o => (o as any).name === 'blurredImage');
     if (!blurredImg) return;
-    const blurRects = canvas.getObjects().filter(o => (o as any).isBlurControl);
+    const blurRects = canvas.getObjects().filter(o => (o as any).name === 'blurControl');
     if (blurRects.length === 0) {
       blurredImg.set('visible', false);
       canvas.requestRenderAll();
@@ -440,9 +440,9 @@ export default function App() {
       canvas.on('selection:created', e => setSelectedObject(e.selected?.[0] || null));
       canvas.on('selection:updated', e => setSelectedObject(e.selected?.[0] || null));
       canvas.on('selection:cleared', () => setSelectedObject(null));
-      canvas.on('object:moving', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
-      canvas.on('object:scaling', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
-      canvas.on('object:rotating', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
+      canvas.on('object:moving', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
+      canvas.on('object:scaling', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
+      canvas.on('object:rotating', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
       canvas.on('object:modified', () => { saveHistory(); updateBlurRegions(); });
 
       canvas.on('mouse:wheel', opt => {
@@ -597,7 +597,6 @@ export default function App() {
     else if (type === 'blur') {
       // 0.01 opacity white fill makes it clickable without being visible over the blur effect
       obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(255,255,255,0.01)', stroke: 'transparent', strokeWidth: 0, left: cx - 180, top: cy - 120 });
-      (obj as any).isBlurControl = true;
       (obj as any).name = 'blurControl';
     }
 
@@ -619,7 +618,7 @@ export default function App() {
   useEffect(() => {
     if (!fabricCanvasRef.current || !selectedObject || (selectedObject as any).name === 'baseImage') return;
     const obj = selectedObject;
-    if ((obj as any).isBlurControl) return; // Prevent color picker from coloring blur regions
+    if ((obj as any).name === 'blurControl') return; // Prevent color picker from coloring blur regions
     
     const strokeDashArray = isDashed ? [5, 5] : undefined;
     let needsRender = false;
@@ -651,7 +650,7 @@ export default function App() {
     const canvas = fabricCanvasRef.current;
     
     // Hide blur control outlines before export
-    const blurRects = canvas.getObjects().filter(o => (o as any).isBlurControl);
+    const blurRects = canvas.getObjects().filter(o => (o as any).name === 'blurControl');
     blurRects.forEach(r => r.set('visible', false));
     canvas.discardActiveObject();
     canvas.renderAll();
