@@ -69,7 +69,7 @@ export default function App() {
       for (const fileHandle of launchParams.files) {
         try {
           const file: File = await fileHandle.getFile();
-          if (!file.type.startsWith('image/')) continue;
+          if (!file.type.startsWith('image/') && !/\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(file.name)) continue;
           const url = URL.createObjectURL(file);
           blobUrlsRef.current.add(url);
           newFiles.push({
@@ -148,7 +148,7 @@ export default function App() {
   const handleFiles = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
     const newFiles: ViewerFile[] = Array.from(selectedFiles)
-      .filter(f => f.type.startsWith('image/'))
+      .filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name))
       .map(f => {
         const url = URL.createObjectURL(f);
         blobUrlsRef.current.add(url);
@@ -721,8 +721,8 @@ export default function App() {
               <Download size={16} />
             </button>
           )}
-          <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={e => handleFiles(e.target.files)} />
-          <input ref={folderInputRef} type="file" multiple accept="image/*" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="hidden" onChange={e => handleFiles(e.target.files)} />
+          <input ref={fileInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => handleFiles(e.target.files)} />
+          <input ref={folderInputRef} type="file" multiple accept="image/*" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => handleFiles(e.target.files)} />
         </div>
       </header>
 
@@ -936,10 +936,12 @@ export default function App() {
                   <p className="text-sm text-gray-400 leading-relaxed">광고 없는 깔끔한 이미지 뷰어.<br />사진을 드래그하거나 불러와 감상하세요.</p>
                 </div>
                 <div className="flex flex-col gap-2.5">
-                  <label className="px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-xl cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all whitespace-nowrap">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-xl cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all whitespace-nowrap"
+                  >
                     이미지 불러오기
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={e => handleFiles(e.target.files)} />
-                  </label>
+                  </button>
                   <button onClick={() => folderInputRef.current?.click()} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
                     폴더 열기
                   </button>
