@@ -608,6 +608,7 @@ export default function App() {
         transparentCorners: false,
         borderColor: '#3b82f6',
         borderScaleFactor: 1.5,
+        hasBorders: (obj as any).name !== 'blurControl' // Hide connecting lines for blur regions
       });
       canvas.add(obj);
       canvas.setActiveObject(obj);
