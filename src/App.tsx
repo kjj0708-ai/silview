@@ -595,7 +595,8 @@ export default function App() {
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
     else if (type === 'blur') {
-      obj = new fabric.Rect({ width: 360, height: 240, fill: 'transparent', stroke: '#ef4444', strokeWidth: 9, strokeDashArray: [10, 10], left: cx - 180, top: cy - 120 });
+      // 0.01 opacity white fill makes it clickable without being visible over the blur effect
+      obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(255,255,255,0.01)', stroke: 'transparent', strokeWidth: 0, left: cx - 180, top: cy - 120 });
       (obj as any).isBlurControl = true;
       (obj as any).name = 'blurControl';
     }
@@ -618,6 +619,8 @@ export default function App() {
   useEffect(() => {
     if (!fabricCanvasRef.current || !selectedObject || (selectedObject as any).name === 'baseImage') return;
     const obj = selectedObject;
+    if ((obj as any).isBlurControl) return; // Prevent color picker from coloring blur regions
+    
     const strokeDashArray = isDashed ? [5, 5] : undefined;
     let needsRender = false;
     if ((obj as any).arrowShape) {
