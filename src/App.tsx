@@ -423,7 +423,7 @@ export default function App() {
         canvas.zoomToPoint(new fabric.Point(cW / 2, cH / 2), initialZoom);
         
         fImg.clone().then(blurredImg => {
-          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.15 })];
+          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.30 })];
           blurredImg.applyFilters();
           blurredImg.selectable = false;
           blurredImg.evented = false;
@@ -921,106 +921,117 @@ export default function App() {
           {isEditing ? (
             /* ── Editor ─────────────────────────────────── */
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Toolbar */}
-              <div className="bg-white border-b border-gray-100 flex flex-wrap items-center p-1.5 gap-x-1.5 gap-y-1.5 flex-shrink-0">
-                {/* Shapes */}
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
-                  {shapeButtons.map(({ type, Icon, label }) => (
-                    <button key={type} onClick={() => addShape(type)} className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white hover:shadow-sm rounded-md text-xs text-gray-600 hover:text-gray-900 transition-all font-medium whitespace-nowrap">
-                      <Icon size={13} /> {label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
-
-                {/* Color + Dash */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="relative w-7 h-7 rounded-md border-2 border-gray-200 overflow-hidden cursor-pointer hover:border-gray-300 transition-colors" title="색상 선택">
-                    <input type="color" value={brushColor} onChange={e => setBrushColor(e.target.value)} className="absolute inset-0 w-10 h-10 -m-1 cursor-pointer opacity-0" />
-                    <div className="w-full h-full" style={{ backgroundColor: brushColor }} />
+              {/* Toolbar - 2 Rows for mobile optimization */}
+              <div className="bg-white border-b border-gray-100 flex flex-col flex-shrink-0">
+                
+                {/* Row 1: Shapes + Color */}
+                <div className="flex items-center px-1.5 py-1.5 gap-1 w-full overflow-x-auto no-scrollbar">
+                  <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+                    {shapeButtons.filter(b => b.type !== 'blur').map(({ type, Icon, label }) => (
+                      <button key={type} onClick={() => addShape(type)} className="flex items-center gap-1 px-2 py-1 hover:bg-white hover:shadow-sm rounded-md text-[11px] text-gray-600 hover:text-gray-900 transition-all font-medium whitespace-nowrap">
+                        <Icon size={12} /> {label}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => setIsDashed(!isDashed)}
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition-all ${isDashed ? 'bg-blue-50 border-blue-200 text-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                  >
-                    점선
-                  </button>
-                </div>
 
-                <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0 mx-0.5" />
 
-                {/* Editor zoom */}
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 flex-shrink-0">
-                  <button onClick={() => adjustZoom(-0.1)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 transition-all"><ZoomOut size={13} /></button>
-                  <button onClick={zoomToFit} className="px-2.5 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-50 rounded-md min-w-[52px] text-center transition-colors">{Math.round(editorZoom * 100)}%</button>
-                  <button onClick={() => adjustZoom(0.1)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 transition-all"><ZoomIn size={13} /></button>
-                </div>
-
-                <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
-
-                {/* Undo + Delete */}
-                <button
-                  onClick={() => {
-                    const history = undoHistoryRef.current;
-                    if (!history.length || !fabricCanvasRef.current) return;
-                    const last = history[history.length - 1];
-                    fabricCanvasRef.current.loadFromJSON(last).then(() => {
-                      fabricCanvasRef.current!.renderAll();
-                      setUndoHistory(prev => prev.slice(0, -1));
-                      updateBlurRegions();
-                    });
-                  }}
-                  disabled={undoHistory.length === 0}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex-shrink-0 ${undoHistory.length === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
-                >
-                  <Undo size={13} /> 되돌리기
-                </button>
-                <button onClick={deleteSelectedObject} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-red-500 hover:bg-red-50 transition-all flex-shrink-0">
-                  <Trash2 size={13} /> 삭제
-                </button>
-
-                <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
-
-                {/* Crop */}
-                <button
-                  onClick={startCaptureCrop}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex-shrink-0 ${isCropping ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'text-orange-600 hover:bg-orange-50'}`}
-                >
-                  <Crop size={13} /> 자르기
-                </button>
-
-                <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
-
-                {/* Resize */}
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 flex-shrink-0">
-                  <span>W</span>
-                  <input type="number" value={resizeWidth} onChange={e => handleResizeChange('w', parseInt(e.target.value) || 0)} className="w-14 px-1.5 py-1 border border-gray-200 rounded-md bg-gray-50 text-gray-700 text-center text-[11px] font-normal" />
-                  <span>H</span>
-                  <input type="number" value={resizeHeight} onChange={e => handleResizeChange('h', parseInt(e.target.value) || 0)} className="w-14 px-1.5 py-1 border border-gray-200 rounded-md bg-gray-50 text-gray-700 text-center text-[11px] font-normal" />
-                  <button onClick={() => setMaintainAspect(!maintainAspect)} className={`px-2 py-1 rounded-md border transition-all font-medium ${maintainAspect ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>비율</button>
-                </div>
-
-                {/* Right actions */}
-                <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
-                  {isCropping && (
-                    <>
-                      <button onClick={applyCaptureCrop} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 shadow-sm transition-all">
-                        <Check size={13} /> 적용
-                      </button>
-                      <button onClick={cancelCrop} className="flex items-center gap-1.5 px-3.5 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-all">
-                        <X size={13} /> 취소
-                      </button>
-                    </>
-                  )}
-                  {!isCropping && (
-                    <button onClick={saveEditedImage} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition-all">
-                      <Save size={13} /> 저장
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="relative w-6 h-6 rounded-md border border-gray-200 overflow-hidden cursor-pointer hover:border-gray-300 transition-colors" title="색상 선택">
+                      <input type="color" value={brushColor} onChange={e => setBrushColor(e.target.value)} className="absolute inset-0 w-10 h-10 -m-1 cursor-pointer opacity-0" />
+                      <div className="w-full h-full" style={{ backgroundColor: brushColor }} />
+                    </div>
+                    <button
+                      onClick={() => setIsDashed(!isDashed)}
+                      className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-all ${isDashed ? 'bg-blue-50 border-blue-200 text-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                    >
+                      점선
                     </button>
-                  )}
-                  <button onClick={() => setIsEditing(false)} className="px-3.5 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-all">
-                    닫기
+                  </div>
+                </div>
+
+                {/* Row 2: Blur + Tools + Actions */}
+                <div className="flex flex-wrap items-center px-1.5 pb-1.5 gap-x-1.5 gap-y-1.5 w-full">
+                  
+                  {/* Blur (Prominent) */}
+                  <button onClick={() => addShape('blur')} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-100 hover:border-blue-200 rounded-lg text-[11px] font-bold transition-all shadow-sm flex-shrink-0">
+                    <Droplet size={13} fill="currentColor" /> 블러
                   </button>
+
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
+                  {/* Editor zoom */}
+                  <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 flex-shrink-0">
+                    <button onClick={() => adjustZoom(-0.1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md text-gray-500 transition-all"><ZoomOut size={12} /></button>
+                    <button onClick={zoomToFit} className="px-1.5 py-0.5 text-[10px] font-bold text-blue-600 hover:bg-blue-50 rounded-md min-w-[42px] text-center transition-colors">{Math.round(editorZoom * 100)}%</button>
+                    <button onClick={() => adjustZoom(0.1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md text-gray-500 transition-all"><ZoomIn size={12} /></button>
+                  </div>
+
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
+                  {/* Undo + Delete */}
+                  <button
+                    onClick={() => {
+                      const history = undoHistoryRef.current;
+                      if (!history.length || !fabricCanvasRef.current) return;
+                      const last = history[history.length - 1];
+                      fabricCanvasRef.current.loadFromJSON(last).then(() => {
+                        fabricCanvasRef.current!.renderAll();
+                        setUndoHistory(prev => prev.slice(0, -1));
+                        updateBlurRegions();
+                      });
+                    }}
+                    disabled={undoHistory.length === 0}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all flex-shrink-0 ${undoHistory.length === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
+                  >
+                    <Undo size={12} /> 복구
+                  </button>
+                  <button onClick={deleteSelectedObject} className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-medium text-red-500 hover:bg-red-50 transition-all flex-shrink-0">
+                    <Trash2 size={12} /> 삭제
+                  </button>
+
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
+                  {/* Crop */}
+                  <button
+                    onClick={startCaptureCrop}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all flex-shrink-0 ${isCropping ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'text-orange-600 hover:bg-orange-50'}`}
+                  >
+                    <Crop size={12} /> 자르기
+                  </button>
+
+                  <div className="w-px h-4 bg-gray-200 flex-shrink-0" />
+
+                  {/* Resize */}
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 flex-shrink-0">
+                    <span>W</span>
+                    <input type="number" value={resizeWidth} onChange={e => handleResizeChange('w', parseInt(e.target.value) || 0)} className="w-12 px-1 py-1 border border-gray-200 rounded-md bg-gray-50 text-gray-700 text-center text-[10px] font-normal" />
+                    <span>H</span>
+                    <input type="number" value={resizeHeight} onChange={e => handleResizeChange('h', parseInt(e.target.value) || 0)} className="w-12 px-1 py-1 border border-gray-200 rounded-md bg-gray-50 text-gray-700 text-center text-[10px] font-normal" />
+                    <button onClick={() => setMaintainAspect(!maintainAspect)} className={`px-1.5 py-1 rounded-md border transition-all font-medium ${maintainAspect ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>비율</button>
+                  </div>
+
+                  {/* Right actions */}
+                  <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                    {isCropping && (
+                      <>
+                        <button onClick={applyCaptureCrop} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-600 text-white rounded-lg text-[11px] font-bold hover:bg-orange-700 shadow-sm transition-all">
+                          <Check size={12} /> 적용
+                        </button>
+                        <button onClick={cancelCrop} className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-[11px] font-medium hover:bg-gray-50 transition-all">
+                          <X size={12} /> 취소
+                        </button>
+                      </>
+                    )}
+                    {!isCropping && (
+                      <button onClick={saveEditedImage} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-bold hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition-all">
+                        <Save size={12} /> 저장
+                      </button>
+                    )}
+                    <button onClick={() => setIsEditing(false)} className="px-2.5 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-[11px] font-medium hover:bg-gray-50 transition-all">
+                      닫기
+                    </button>
+                  </div>
                 </div>
               </div>
 
