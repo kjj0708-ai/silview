@@ -25,13 +25,13 @@ export default defineConfig(({mode}) => {
           scope: '/',
           icons: [
             {
-              src: '/500-icon.png',
+              src: '/new-icon.png',
               sizes: '500x500',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/500-icon.png',
+              src: '/new-icon.png',
               sizes: '500x500',
               type: 'image/png',
               purpose: 'maskable'
