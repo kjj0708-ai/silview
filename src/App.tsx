@@ -48,6 +48,8 @@ export default function App() {
   const [resizeHeight, setResizeHeight] = useState(0);
   const [maintainAspect, setMaintainAspect] = useState(true);
   const [isCropping, setIsCropping] = useState(false);
+  const [initialDistance, setInitialDistance] = useState<number | null>(null);
+  const [initialZoom, setInitialZoom] = useState<number>(1);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -676,10 +678,10 @@ export default function App() {
             </div>
             <button
               onClick={() => currentIndex !== null && setIsEditing(!isEditing)}
-              className={`px-2 md:px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${isEditing ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100'}`}
+              className={`px-2.5 py-1.5 rounded-md transition-colors flex items-center gap-1.5 font-semibold ${isEditing ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}`}
             >
-              <Edit3 size={12} />
-              <span className="hidden md:inline">{isEditing ? '뷰어' : '편집'}</span>
+              <Edit3 size={13} />
+              <span>{isEditing ? '뷰어' : '편집'}</span>
             </button>
             <button
               onClick={() => setShowGallery(!showGallery)}
@@ -815,7 +817,7 @@ export default function App() {
             /* ── Editor ─────────────────────────────────── */
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Toolbar */}
-              <div className="h-14 bg-white border-b border-gray-100 flex items-center px-4 gap-3 flex-shrink-0 overflow-x-auto">
+              <div className="bg-white border-b border-gray-100 flex flex-wrap items-center p-1.5 gap-x-1.5 gap-y-1.5 flex-shrink-0">
                 {/* Shapes */}
                 <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
                   {shapeButtons.map(({ type, Icon, label }) => (
@@ -894,7 +896,7 @@ export default function App() {
                 </div>
 
                 {/* Right actions */}
-                <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
                   {isCropping && (
                     <>
                       <button onClick={applyCaptureCrop} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-700 shadow-sm transition-all">
@@ -973,6 +975,24 @@ export default function App() {
               ref={containerRef}
               className="flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing touch-none"
               style={{ background: 'radial-gradient(ellipse at 50% 40%, #252535 0%, #15151f 100%)' }}
+              onTouchStart={(e) => {
+                if (e.touches.length === 2) {
+                  const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                  setInitialDistance(dist);
+                  setInitialZoom(zoom);
+                }
+              }}
+              onTouchMove={(e) => {
+                if (e.touches.length === 2 && initialDistance !== null) {
+                  const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                  const scale = currentDist / initialDistance;
+                  const newZoom = Math.min(Math.max(0.1, initialZoom * scale), 10);
+                  setZoom(newZoom);
+                }
+              }}
+              onTouchEnd={() => {
+                setInitialDistance(null);
+              }}
             >
               {/* Subtle dot grid */}
               <div
