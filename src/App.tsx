@@ -224,7 +224,7 @@ export default function App() {
     }
     blurredImg.set('visible', true);
     Promise.all(blurRects.map(r => r.clone())).then(clones => {
-      clones.forEach(c => c.set({ fill: 'black', stroke: null, strokeWidth: 0 }));
+      clones.forEach(c => c.set({ fill: 'black', stroke: null, strokeWidth: 0, opacity: 1 }));
       blurredImg.clipPath = new fabric.Group(clones, { absolutePositioned: true });
       canvas.requestRenderAll();
     });
