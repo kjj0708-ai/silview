@@ -72,11 +72,14 @@ export default function App() {
         try {
           const file: File = await fileHandle.getFile();
           if (!file.type.startsWith('image/') && !/\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(file.name)) continue;
-          const url = URL.createObjectURL(file);
-          blobUrlsRef.current.add(url);
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
           newFiles.push({
             id: Math.random().toString(36).substr(2, 9),
-            url,
+            url: dataUrl,
             name: file.name,
             size: file.size,
           });
@@ -90,12 +93,6 @@ export default function App() {
       });
       window.focus();
     });
-  }, []);
-
-  // Fix: track all active blob URLs to revoke only on unmount, not on every files change
-  const blobUrlsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    return () => { blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url)); };
   }, []);
 
   useEffect(() => {
@@ -153,16 +150,27 @@ export default function App() {
     }
   }, [files.length, currentIndex]);
 
-  const handleFiles = useCallback((selectedFiles: FileList | null) => {
+  const handleFiles = useCallback(async (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
-    const newFiles: ViewerFile[] = Array.from(selectedFiles)
-      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '')
-      .map(f => {
-        const url = URL.createObjectURL(f);
-        blobUrlsRef.current.add(url);
-        return { id: Math.random().toString(36).substr(2, 9), url, name: f.name, size: f.size };
-      });
-    if (!newFiles.length) return;
+    const filesArray = Array.from(selectedFiles)
+      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '');
+    if (!filesArray.length) return;
+
+    const newFiles: ViewerFile[] = await Promise.all(
+      filesArray.map(f => {
+        return new Promise<ViewerFile>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({
+            id: Math.random().toString(36).substr(2, 9),
+            url: e.target?.result as string,
+            name: f.name,
+            size: f.size
+          });
+          reader.readAsDataURL(f);
+        });
+      })
+    );
+    
     setFiles(prev => [...prev, ...newFiles]);
     setShowFileMenu(false);
   }, []);
@@ -589,14 +597,9 @@ export default function App() {
     canvas.renderAll();
 
     fetch(dataUrl).then(r => r.blob()).then(blob => {
-      const newUrl = URL.createObjectURL(blob);
-      blobUrlsRef.current.add(newUrl);
-      const oldUrl = files[currentIndex].url;
-      URL.revokeObjectURL(oldUrl);
-      blobUrlsRef.current.delete(oldUrl);
-      setFiles(prev => { const n = [...prev]; n[currentIndex] = { ...n[currentIndex], url: newUrl, size: blob.size }; return n; });
+      setFiles(prev => { const n = [...prev]; n[currentIndex] = { ...n[currentIndex], url: dataUrl, size: blob.size }; return n; });
       const link = document.createElement('a');
-      link.href = newUrl; link.download = `edited_${files[currentIndex].name.replace(/\.[^.]+$/, '')}.png`; link.click();
+      link.href = dataUrl; link.download = `edited_${files[currentIndex].name.replace(/\.[^.]+$/, '')}.png`; link.click();
       setIsEditing(false);
     });
   };
