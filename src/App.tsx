@@ -148,7 +148,7 @@ export default function App() {
   const handleFiles = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
     const newFiles: ViewerFile[] = Array.from(selectedFiles)
-      .filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name))
+      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name))
       .map(f => {
         const url = URL.createObjectURL(f);
         blobUrlsRef.current.add(url);
@@ -645,12 +645,19 @@ export default function App() {
                     className="absolute top-full left-0 mt-1.5 w-52 bg-white border border-gray-200 shadow-xl rounded-xl py-1.5 z-[60] ring-1 ring-black/5"
                   >
                     {[
-                      { onClick: () => fileInputRef.current?.click(), Icon: Upload, label: '이미지 열기' },
-                      { onClick: () => folderInputRef.current?.click(), Icon: FolderOpen, label: '폴더 열기' },
-                    ].map(({ onClick, Icon, label }) => (
-                      <button key={label} onClick={onClick} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700">
-                        <Icon size={13} className="text-gray-400" /> {label}
-                      </button>
+                      { isFile: true, Icon: Upload, label: '이미지 열기' },
+                      { isFile: false, onClick: () => folderInputRef.current?.click(), Icon: FolderOpen, label: '폴더 열기' },
+                    ].map(({ isFile, onClick, Icon, label }) => (
+                      isFile ? (
+                        <div key={label} className="relative overflow-hidden w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700 cursor-pointer">
+                          <Icon size={13} className="text-gray-400 pointer-events-none" /> <span className="pointer-events-none">{label}</span>
+                          <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                        </div>
+                      ) : (
+                        <button key={label} onClick={onClick} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700">
+                          <Icon size={13} className="text-gray-400" /> {label}
+                        </button>
+                      )
                     ))}
                     <div className="h-px bg-gray-100 my-1 mx-3" />
                     <button onClick={() => setShowInstallInfo(true)} className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2.5 transition-colors text-blue-600">
@@ -712,7 +719,10 @@ export default function App() {
               <button onClick={() => setZoom(prev => Math.min(Math.max(0.1, prev + 0.2), 10))} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 hover:text-gray-800 transition-all" title="확대"><ZoomIn size={14} /></button>
             </div>
           )}
-          <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors" title="이미지 열기"><Upload size={16} /></button>
+          <div className="relative overflow-hidden p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors cursor-pointer" title="이미지 열기">
+            <Upload size={16} className="pointer-events-none" />
+            <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          </div>
           {currentIndex !== null && (
             <button
               onClick={() => { const a = document.createElement('a'); a.href = files[currentIndex].url; a.download = files[currentIndex].name; a.click(); }}
@@ -721,8 +731,8 @@ export default function App() {
               <Download size={16} />
             </button>
           )}
-          <input ref={fileInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => handleFiles(e.target.files)} />
-          <input ref={folderInputRef} type="file" multiple accept="image/*" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => handleFiles(e.target.files)} />
+          <input ref={fileInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={folderInputRef} type="file" multiple accept="image/*" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
 
@@ -936,12 +946,12 @@ export default function App() {
                   <p className="text-sm text-gray-400 leading-relaxed">광고 없는 깔끔한 이미지 뷰어.<br />사진을 드래그하거나 불러와 감상하세요.</p>
                 </div>
                 <div className="flex flex-col gap-2.5">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-6 py-3 bg-blue-600 text-white text-sm font-semibold rounded-xl cursor-pointer hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all whitespace-nowrap"
-                  >
-                    이미지 불러오기
-                  </button>
+                  <div className="relative overflow-hidden bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 cursor-pointer">
+                    <div className="px-6 py-3 text-white text-sm font-semibold text-center pointer-events-none whitespace-nowrap">
+                      이미지 불러오기
+                    </div>
+                    <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                  </div>
                   <button onClick={() => folderInputRef.current?.click()} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
                     폴더 열기
                   </button>
