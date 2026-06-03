@@ -147,22 +147,25 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (files.length > 0 && currentIndex === null) {
+      setCurrentIndex(0);
+    }
+  }, [files.length, currentIndex]);
+
   const handleFiles = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
     const newFiles: ViewerFile[] = Array.from(selectedFiles)
-      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name))
+      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '')
       .map(f => {
         const url = URL.createObjectURL(f);
         blobUrlsRef.current.add(url);
         return { id: Math.random().toString(36).substr(2, 9), url, name: f.name, size: f.size };
       });
     if (!newFiles.length) return;
-    setFiles(prev => {
-      if (currentIndex === null) setCurrentIndex(prev.length);
-      return [...prev, ...newFiles];
-    });
+    setFiles(prev => [...prev, ...newFiles]);
     setShowFileMenu(false);
-  }, [currentIndex]);
+  }, []);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -653,7 +656,7 @@ export default function App() {
                       isFile ? (
                         <div key={label} className="relative overflow-hidden w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700 cursor-pointer">
                           <Icon size={13} className="text-gray-400 pointer-events-none" /> <span className="pointer-events-none">{label}</span>
-                          <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                          <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
                         </div>
                       ) : (
                         <button key={label} onClick={onClick} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700">
@@ -723,7 +726,7 @@ export default function App() {
           )}
           <div className="relative overflow-hidden p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors cursor-pointer" title="이미지 열기">
             <Upload size={16} className="pointer-events-none" />
-            <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+            <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
           </div>
           {currentIndex !== null && (
             <button
@@ -733,8 +736,8 @@ export default function App() {
               <Download size={16} />
             </button>
           )}
-          <input ref={fileInputRef} type="file" multiple accept="image/*" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
-          <input ref={folderInputRef} type="file" multiple accept="image/*" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={fileInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
 
@@ -952,7 +955,7 @@ export default function App() {
                     <div className="px-6 py-3 text-white text-sm font-semibold text-center pointer-events-none whitespace-nowrap">
                       이미지 불러오기
                     </div>
-                    <input type="file" multiple accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                    <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
                   </div>
                   <button onClick={() => folderInputRef.current?.click()} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
                     폴더 열기
