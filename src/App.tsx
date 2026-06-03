@@ -595,20 +595,23 @@ export default function App() {
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
     else if (type === 'blur') {
-      // 0 opacity black makes it hit-testable but completely invisible, preventing faint white box artifacts
-      obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(0,0,0,0)', stroke: null, strokeWidth: 0, left: cx - 180, top: cy - 120 });
+      obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(0,0,0,0)', stroke: 'rgba(0,0,0,0)', strokeWidth: 0, left: cx - 180, top: cy - 120 });
       (obj as any).name = 'blurControl';
+      // _render를 빈 함수로 교체 → Fabric.js가 rect 자체를 아예 안 그림
+      // (antialiasing 포함 어떤 아웃라인도 100% 제거)
+      (obj as any)._render = () => {};
     }
 
     if (obj) {
+      const isBlur = (obj as any).name === 'blurControl';
       obj.set({
-        cornerSize: 4,
-        cornerColor: '#3b82f6',
+        cornerSize: isBlur ? 8 : 4,
+        cornerColor: isBlur ? 'rgba(59,130,246,0.75)' : '#3b82f6',
         cornerStrokeColor: '#ffffff',
-        transparentCorners: false,
-        borderColor: '#3b82f6',
+        transparentCorners: isBlur ? true : false, // 블러: 링 스타일(hollow), 기타: 채워진 핸들
+        borderColor: 'rgba(0,0,0,0)',              // 블러 bounding box 완전 투명
         borderScaleFactor: 1.5,
-        hasBorders: (obj as any).name !== 'blurControl' // Hide connecting lines for blur regions
+        hasBorders: !isBlur,
       });
       canvas.add(obj);
       canvas.setActiveObject(obj);
