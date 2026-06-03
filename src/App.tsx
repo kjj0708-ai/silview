@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink,
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -201,10 +201,6 @@ export default function App() {
     e.stopPropagation();
     const idx = files.findIndex(f => f.id === id);
     const fileToRemove = files[idx];
-    if (fileToRemove) {
-      URL.revokeObjectURL(fileToRemove.url);
-      blobUrlsRef.current.delete(fileToRemove.url);
-    }
     setFiles(prev => prev.filter(f => f.id !== id));
     if (files.length === 1) {
       setCurrentIndex(null);
@@ -214,6 +210,25 @@ export default function App() {
       setCurrentIndex(prev => (prev ?? 0) - 1);
     }
   };
+
+  const updateBlurRegions = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    const blurredImg = canvas.getObjects().find(o => (o as any).name === 'blurredImage');
+    if (!blurredImg) return;
+    const blurRects = canvas.getObjects().filter(o => (o as any).isBlurControl);
+    if (blurRects.length === 0) {
+      blurredImg.set('visible', false);
+      canvas.requestRenderAll();
+      return;
+    }
+    blurredImg.set('visible', true);
+    Promise.all(blurRects.map(r => r.clone())).then(clones => {
+      clones.forEach(c => c.set({ fill: 'black', stroke: 'transparent' }));
+      blurredImg.clipPath = new fabric.Group(clones, { absolutePositioned: true });
+      canvas.requestRenderAll();
+    });
+  }, []);
 
   const saveHistory = useCallback(() => {
     if (!fabricCanvasRef.current) return;
@@ -255,11 +270,12 @@ export default function App() {
     const activeObjects = canvas.getActiveObjects();
     if (!activeObjects.length) return;
     saveHistory();
-    activeObjects.forEach(obj => { if ((obj as any).name !== 'baseImage') canvas.remove(obj); });
+    activeObjects.forEach(obj => { if ((obj as any).name !== 'baseImage' && (obj as any).name !== 'blurredImage') canvas.remove(obj); });
     canvas.discardActiveObject();
     canvas.requestRenderAll();
     setSelectedObject(null);
-  }, [saveHistory]);
+    updateBlurRegions();
+  }, [saveHistory, updateBlurRegions]);
 
   const startCaptureCrop = () => {
     if (!fabricCanvasRef.current) return;
@@ -405,13 +421,29 @@ export default function App() {
         canvas.add(fImg);
         canvas.centerObject(fImg);
         canvas.zoomToPoint(new fabric.Point(cW / 2, cH / 2), initialZoom);
-        canvas.renderAll();
+        
+        fImg.clone().then(blurredImg => {
+          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.15 })];
+          blurredImg.applyFilters();
+          blurredImg.selectable = false;
+          blurredImg.evented = false;
+          (blurredImg as any).name = 'blurredImage';
+          blurredImg.visible = false;
+          blurredImg.clipPath = new fabric.Group([], { absolutePositioned: true });
+          canvas.add(blurredImg);
+          canvas.sendBackwards(blurredImg);
+          canvas.sendBackwards(fImg);
+          canvas.renderAll();
+        });
       });
 
       canvas.on('selection:created', e => setSelectedObject(e.selected?.[0] || null));
       canvas.on('selection:updated', e => setSelectedObject(e.selected?.[0] || null));
       canvas.on('selection:cleared', () => setSelectedObject(null));
-      canvas.on('object:modified', () => saveHistory());
+      canvas.on('object:moving', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
+      canvas.on('object:scaling', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
+      canvas.on('object:rotating', (e) => { if ((e.target as any)?.isBlurControl) updateBlurRegions(); });
+      canvas.on('object:modified', () => { saveHistory(); updateBlurRegions(); });
 
       canvas.on('mouse:wheel', opt => {
         const delta = opt.e.deltaY;
@@ -502,20 +534,20 @@ export default function App() {
           if (active?.type === 'i-text' && (active as fabric.IText).isEditing) return;
           const objs = canvas.getActiveObjects();
           if (!objs.length) return;
-          // Save history inline using canvas directly to avoid stale closure
           const json = JSON.stringify((canvas as any).toJSON(['name', 'selectable', 'evented']));
           setUndoHistory(prev => { const n = [...prev, json]; return n.length > 20 ? n.slice(1) : n; });
-          objs.forEach(o => { if ((o as any).name !== 'baseImage') canvas.remove(o); });
+          objs.forEach(o => { if ((o as any).name !== 'baseImage' && (o as any).name !== 'blurredImage') canvas.remove(o); });
           canvas.discardActiveObject(); canvas.requestRenderAll(); setSelectedObject(null);
+          updateBlurRegions();
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-          // Fix: use ref to avoid stale undoHistory closure
           const history = undoHistoryRef.current;
           if (!history.length) return;
           const last = history[history.length - 1];
           canvas.loadFromJSON(last).then(() => {
             canvas.renderAll();
             setUndoHistory(prev => prev.slice(0, -1));
+            updateBlurRegions();
           });
         }
       };
@@ -534,20 +566,18 @@ export default function App() {
     };
   }, [isEditing, currentIndex, files, saveHistory]);
 
-  const addShape = (type: 'rect' | 'circle' | 'text' | 'line' | 'arrow') => {
+  const addShape = (type: 'rect' | 'circle' | 'text' | 'line' | 'arrow' | 'blur') => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
     saveHistory();
     const strokeDashArray = isDashed ? [5, 5] : undefined;
 
-    // 현재 뷰포트 중앙 좌표 (월드 좌표)
     const z = canvas.getZoom();
     const vpt = canvas.viewportTransform!;
     const cx = (canvas.width!  / 2 - vpt[4]) / z;
     const cy = (canvas.height! / 2 - vpt[5]) / z;
 
     let obj: fabric.Object | undefined;
-    // 기존 대비 3배 크기, 선두께 9px
     if (type === 'rect')
       obj = new fabric.Rect({ width: 360, height: 240, fill: 'transparent', stroke: brushColor, strokeWidth: 9, strokeDashArray, left: cx - 180, top: cy - 120 });
     else if (type === 'circle')
@@ -555,20 +585,22 @@ export default function App() {
     else if (type === 'line')
       obj = new fabric.Line([0, 0, 450, 0], { stroke: brushColor, strokeWidth: 9, strokeDashArray, strokeLineCap: 'round', left: cx - 225, top: cy });
     else if (type === 'arrow') {
-      // 화살표: 선 몸통(두께 9) + 정삼각형 헤드(밑변 60, 높이 52)
-      // 정삼각형: base=60, height=60*√3/2≈52
-      const sw = 9, th = 52, tb = 30; // th=triangle height, tb=triangle half-base
-      const bEnd = 450 - th; // body ends at 398
+      const sw = 9, th = 52, tb = 30;
+      const bEnd = 450 - th;
       obj = new fabric.Path(
         `M 0 ${-sw / 2} L ${bEnd} ${-sw / 2} L ${bEnd} ${-tb} L 450 0 L ${bEnd} ${tb} L ${bEnd} ${sw / 2} L 0 ${sw / 2} Z`,
         { fill: brushColor, stroke: 'transparent', left: cx - 225, top: cy - tb }
       );
-      (obj as any).arrowShape = true; // 화살표 식별용 플래그
+      (obj as any).arrowShape = true;
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
+    else if (type === 'blur') {
+      obj = new fabric.Rect({ width: 360, height: 240, fill: 'transparent', stroke: '#ef4444', strokeWidth: 9, strokeDashArray: [10, 10], left: cx - 180, top: cy - 120 });
+      (obj as any).isBlurControl = true;
+      (obj as any).name = 'blurControl';
+    }
 
     if (obj) {
-      // 핸들 크기를 기본(13px)의 약 30% 수준(4px)으로 축소
       obj.set({
         cornerSize: 4,
         cornerColor: '#3b82f6',
@@ -579,6 +611,7 @@ export default function App() {
       });
       canvas.add(obj);
       canvas.setActiveObject(obj);
+      if (type === 'blur') updateBlurRegions();
     }
   };
 
@@ -613,9 +646,18 @@ export default function App() {
   const saveEditedImage = () => {
     if (!fabricCanvasRef.current || currentIndex === null) return;
     const canvas = fabricCanvasRef.current;
+    
+    // Hide blur control outlines before export
+    const blurRects = canvas.getObjects().filter(o => (o as any).isBlurControl);
+    blurRects.forEach(r => r.set('visible', false));
+    canvas.discardActiveObject();
+    canvas.renderAll();
+
     const baseImg = canvas.getObjects().find(o => (o as any).name === 'baseImage') as fabric.Image;
-    if (!baseImg) return;
-    canvas.discardActiveObject(); canvas.renderAll();
+    if (!baseImg) {
+      blurRects.forEach(r => r.set('visible', true));
+      return;
+    }
 
     // ── 고해상도 저장: 캔버스를 원본 픽셀 밀도로 임시 확장 후 1:1 캡처 ──
     const imgEl = (baseImg as any)._element as HTMLImageElement;
@@ -646,10 +688,10 @@ export default function App() {
 
     const dataUrl = canvas.toDataURL({ format: 'png', quality: 1 });
 
-    // 캔버스 원상복구
     canvas.setWidth(origW);
     canvas.setHeight(origH);
     canvas.setViewportTransform(origVpt);
+    blurRects.forEach(r => r.set('visible', true));
     canvas.renderAll();
 
     fetch(dataUrl).then(r => r.blob()).then(blob => {
@@ -677,6 +719,7 @@ export default function App() {
     { type: 'line' as const, Icon: Minus, label: '선' },
     { type: 'arrow' as const, Icon: MoveRight, label: '화살표' },
     { type: 'text' as const, Icon: Type, label: '텍스트' },
+    { type: 'blur' as const, Icon: Droplet, label: '블러' },
   ];
 
   return (
@@ -925,6 +968,7 @@ export default function App() {
                     fabricCanvasRef.current.loadFromJSON(last).then(() => {
                       fabricCanvasRef.current!.renderAll();
                       setUndoHistory(prev => prev.slice(0, -1));
+                      updateBlurRegions();
                     });
                   }}
                   disabled={undoHistory.length === 0}
