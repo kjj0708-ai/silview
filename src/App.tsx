@@ -424,20 +424,76 @@ export default function App() {
       });
 
       let isPanning = false, lastX = 0, lastY = 0;
+      let initDist = 0, initZoom = canvas.getZoom();
+
       canvas.on('mouse:down', opt => {
-        const e = opt.e as MouseEvent;
-        if (e.altKey || e.button === 1) { isPanning = true; canvas.selection = false; lastX = e.clientX; lastY = e.clientY; }
+        const e = opt.e as any;
+        const isBg = !opt.target || (opt.target as any).name === 'baseImage';
+        const isTouch1 = e.touches && e.touches.length === 1;
+        const isTouch2 = e.touches && e.touches.length === 2;
+
+        if ((isTouch1 && isBg) || isTouch2 || e.altKey || e.button === 1) {
+          isPanning = true;
+          canvas.selection = false;
+          if (isTouch2) {
+            lastX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            lastY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            initDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            initZoom = canvas.getZoom();
+          } else if (isTouch1) {
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+          } else {
+            lastX = e.clientX;
+            lastY = e.clientY;
+          }
+        }
       });
+      
       canvas.on('mouse:move', opt => {
         if (!isPanning) return;
-        const e = opt.e as MouseEvent;
+        const e = opt.e as any;
+        const isTouch1 = e.touches && e.touches.length === 1;
+        const isTouch2 = e.touches && e.touches.length === 2;
+        let cX = 0, cY = 0;
+
+        if (isTouch2) {
+          cX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          cY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          if (initDist > 0) {
+            const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            let z = initZoom * (dist / initDist);
+            z = Math.min(20, Math.max(0.01, z));
+            canvas.zoomToPoint(new fabric.Point(cX, cY), z);
+            setEditorZoom(z);
+          }
+        } else if (isTouch1) {
+          cX = e.touches[0].clientX;
+          cY = e.touches[0].clientY;
+        } else if (!e.touches) {
+          cX = e.clientX;
+          cY = e.clientY;
+        } else {
+          return;
+        }
+
         const vpt = canvas.viewportTransform!;
-        vpt[4] += e.clientX - lastX; vpt[5] += e.clientY - lastY;
-        canvas.requestRenderAll(); lastX = e.clientX; lastY = e.clientY;
+        vpt[4] += cX - lastX;
+        vpt[5] += cY - lastY;
+        canvas.requestRenderAll();
+        lastX = cX;
+        lastY = cY;
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
       });
+      
       canvas.on('mouse:up', () => {
-        canvas.setViewportTransform(canvas.viewportTransform!);
-        isPanning = false; canvas.selection = true;
+        if (isPanning) {
+          canvas.setViewportTransform(canvas.viewportTransform!);
+          isPanning = false;
+          canvas.selection = true;
+          initDist = 0;
+        }
       });
 
       const handleKeyDown = (e: KeyboardEvent) => {
