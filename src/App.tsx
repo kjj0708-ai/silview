@@ -224,7 +224,7 @@ export default function App() {
     }
     blurredImg.set('visible', true);
     Promise.all(blurRects.map(r => r.clone())).then(clones => {
-      clones.forEach(c => c.set({ fill: 'black', stroke: 'transparent' }));
+      clones.forEach(c => c.set({ fill: 'black', stroke: null, strokeWidth: 0 }));
       blurredImg.clipPath = new fabric.Group(clones, { absolutePositioned: true });
       canvas.requestRenderAll();
     });
@@ -595,8 +595,8 @@ export default function App() {
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
     else if (type === 'blur') {
-      // 0.01 opacity white fill makes it clickable without being visible over the blur effect
-      obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(255,255,255,0.01)', stroke: 'transparent', strokeWidth: 0, left: cx - 180, top: cy - 120 });
+      // 0 opacity black makes it hit-testable but completely invisible, preventing faint white box artifacts
+      obj = new fabric.Rect({ width: 360, height: 240, fill: 'rgba(0,0,0,0)', stroke: null, strokeWidth: 0, left: cx - 180, top: cy - 120 });
       (obj as any).name = 'blurControl';
     }
 
