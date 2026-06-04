@@ -1250,24 +1250,6 @@ export default function App() {
       {/* ── 초실행관 배너 ──────────────────────────────────────── */}
       <ChoshgBanner />
 
-      {/* ── Filmstrip ──────────────────────────────────────────── */}
-      {files.length > 0 && !isEditing && (
-        <div className="h-[68px] bg-[#111827] border-t border-black/30 flex items-center px-3 gap-1.5 overflow-x-auto flex-shrink-0">
-          {files.map((file, idx) => (
-            <div
-              key={`strip-${file.id}`}
-              onClick={() => { setCurrentIndex(idx); resetViewer(); }}
-              className={`h-[48px] w-[48px] rounded-lg cursor-pointer flex-shrink-0 overflow-hidden transition-all duration-150 ${currentIndex === idx
-                ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111827] opacity-100 scale-105'
-                : 'opacity-40 hover:opacity-70'
-              }`}
-            >
-              <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ── Status Bar ─────────────────────────────────────────── */}
       <footer className="h-7 bg-[#111827] border-t border-black/20 flex items-center justify-between px-4 text-[10px] text-gray-500 z-50 flex-shrink-0 font-mono">
         <div className="flex items-center gap-3">
