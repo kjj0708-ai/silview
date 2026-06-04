@@ -27,7 +27,7 @@
     {
       "matches": ["https://silview.choshg.com/*"],
       "js": ["content-silview.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "icons": {
