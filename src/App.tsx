@@ -931,6 +931,14 @@ export default function App() {
               <Download size={16} />
             </button>
           )}
+          {currentIndex !== null && !isEditing && (
+            <button
+              onClick={(e) => { removeFile(files[currentIndex].id, e); resetViewer(); }}
+              className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors" title="닫기"
+            >
+              <X size={16} />
+            </button>
+          )}
           <input ref={fileInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
           <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
         </div>
