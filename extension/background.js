@@ -1,16 +1,20 @@
-// ── 컨텍스트 메뉴 등록 ─────────────────────────────────────
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'open-in-silview',
-    title: '실뷰에서 열기 🖼',
-    contexts: ['image']
+// ── 컨텍스트 메뉴 등록 (중복 방지 위해 removeAll 먼저) ────
+function setupMenu() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'open-in-silview',
+      title: '실뷰에서 열기 🖼',
+      contexts: ['image']
+    });
   });
-});
+}
+chrome.runtime.onInstalled.addListener(setupMenu);
+chrome.runtime.onStartup.addListener(setupMenu);
 
-// ── 툴바 버튼 → 사이드 패널 열기 ──────────────────────────
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.windowId) chrome.sidePanel.open({ windowId: tab.windowId });
-});
+// ── 툴바 버튼 클릭 시 사이드 패널 자동 열림 ────────────────
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch(() => {});
 
 // ── blob → base64 (서비스 워커: FileReader 없음) ──────────
 async function blobToDataUrl(blob) {
@@ -24,48 +28,38 @@ async function blobToDataUrl(blob) {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(binary)}`;
 }
 
-// ── 이미지 우클릭 → 패널 열기 ───────────────────────────
+// ── 이미지 우클릭 → 패널 열기 + 이미지 저장 ───────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'open-in-silview' || !info.srcUrl) return;
 
   const fileName = (info.srcUrl.split('/').pop() || 'image.jpg').split('?')[0];
 
-  // 먼저 패널 열기 (사용자 제스처 필요하므로 즉시 실행)
-  if (tab?.windowId) {
-    chrome.sidePanel.open({ windowId: tab.windowId });
+  // 1) 사용자 제스처 안에서 패널 즉시 열기 (await 전에!)
+  if (tab && tab.windowId !== undefined) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
   }
 
-  // 이미지 fetch는 비동기로 처리
+  // 2) 이미지 fetch는 비동기로 storage에 저장 (panel이 onChanged로 받음)
   fetch(info.srcUrl)
     .then(res => res.blob())
     .then(blob => blobToDataUrl(blob))
     .then(dataUrl => {
       chrome.storage.local.set({
-        pendingImage: { dataUrl, name: fileName, type: 'image/jpeg' }
+        pendingImage: { dataUrl, name: fileName, type: 'image/jpeg', ts: Date.now() }
       });
     })
     .catch(() => {
-      // CORS 실패 시 URL 저장
       chrome.storage.local.set({
-        pendingImage: { url: info.srcUrl, name: fileName }
+        pendingImage: { url: info.srcUrl, name: fileName, ts: Date.now() }
       });
     });
 });
 
-// ── 메시지 처리 ─────────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === 'GET_PENDING_IMAGE') {
-    chrome.storage.local.get('pendingImage').then((data) => {
-      sendResponse(data.pendingImage || null);
-      chrome.storage.local.remove('pendingImage');
-    });
-    return true;
-  }
-
+// ── 메시지: 앱(새 탭)으로 열기 ──────────────────────────────
+chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'OPEN_IN_APP') {
-    chrome.storage.local.set({ pendingImage: msg.data }).then(() => {
+    chrome.storage.local.set({ pendingImage: { ...msg.data, ts: Date.now() } }).then(() => {
       chrome.tabs.create({ url: 'https://silview.choshg.com/?from_ext=1' });
     });
-    return true;
   }
 });
