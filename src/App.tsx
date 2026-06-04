@@ -105,6 +105,8 @@ export default function App() {
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  // 생성한 blob URL 추적 (언마운트 시 정리)
+  const blobUrlsRef = useRef<Set<string>>(new Set());
   // Fix: store cleanup so we can remove keydown listener when editor closes
   const editorCleanupRef = useRef<(() => void) | null>(null);
   // Fix: keep undoHistory accessible in stale closures inside editor useEffect
@@ -115,15 +117,12 @@ export default function App() {
   useEffect(() => {
     const fromExt = new URLSearchParams(window.location.search).get('from_ext');
 
-    if (fromExt || window.parent !== window) console.log('[SilView] ext mode, fromExt =', fromExt);
-
     // 이미지 수신
     let received = false;
     const onExtMessage = async (event: MessageEvent) => {
       if (event.data?.type !== 'SILVIEW_EXT_IMAGE' || received) return;
-      console.log('[SilView] received SILVIEW_EXT_IMAGE');
       const data = event.data.payload as { dataUrl?: string; url?: string; name: string };
-      if (!data || (!data.dataUrl && !data.url)) { console.log('[SilView] payload empty!'); return; }
+      if (!data || (!data.dataUrl && !data.url)) return;
       received = true;
       try {
         const res = await fetch(data.dataUrl || data.url!);
@@ -132,15 +131,14 @@ export default function App() {
         const url = URL.createObjectURL(file);
         blobUrlsRef.current.add(url);
         setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2, 9), url, name: file.name, size: file.size }]; });
-        console.log('[SilView] image loaded into viewer ✓');
-      } catch (err) { received = false; console.log('[SilView] fetch failed:', err); }
+      } catch { received = false; }
     };
     window.addEventListener('message', onExtMessage);
 
     // 준비 신호 전송 → content script(새 탭) / panel.js(iframe)가 이를 받고 이미지 전송
     const sendReady = () => {
       if (window.parent !== window) window.parent.postMessage({ type: 'SILVIEW_READY' }, '*'); // iframe → 패널
-      if (fromExt) { console.log('[SilView] sending SILVIEW_READY'); window.postMessage({ type: 'SILVIEW_READY' }, '*'); } // 새 탭 → content script
+      if (fromExt) window.postMessage({ type: 'SILVIEW_READY' }, '*');                          // 새 탭 → content script
     };
     sendReady();
     const t1 = setTimeout(sendReady, 400);
