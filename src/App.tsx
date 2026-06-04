@@ -1247,8 +1247,8 @@ export default function App() {
         </main>
       </div>
 
-      {/* ── 초실행관 배너 ──────────────────────────────────────── */}
-      <ChoshgBanner />
+      {/* ── 초실행관 배너 (사진 안 열렸을 때만 표시) ──────────────── */}
+      {currentIndex === null && <ChoshgBanner />}
 
       {/* ── Status Bar ─────────────────────────────────────────── */}
       <footer className="h-7 bg-[#111827] border-t border-black/20 flex items-center justify-between px-4 text-[10px] text-gray-500 z-50 flex-shrink-0 font-mono">
