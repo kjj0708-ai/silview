@@ -62,16 +62,39 @@ export default function App() {
   const undoHistoryRef = useRef<string[]>([]);
   useEffect(() => { undoHistoryRef.current = undoHistory; }, [undoHistory]);
 
-  // 크롬 확장프로그램 연동: ?from_ext=1 이면 확장에서 이미지 수신
+  // 크롬 확장프로그램 연동
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    // 단일 이미지 (우클릭 → 실뷰에서 열기)
+    // ── 사이드 패널 iframe: postMessage로 이미지 수신 ────────
+    // iframe 안에서 로드됐을 때 부모(패널)에게 준비 신호 전송
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'SILVIEW_READY' }, 'chrome-extension://');
+      // 와일드카드가 안 되므로 * 사용 (확장 패널만 postMessage 하므로 안전)
+      window.parent.postMessage({ type: 'SILVIEW_READY' }, '*');
+    }
+
+    // 패널에서 이미지 데이터 수신
+    const onExtMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== 'SILVIEW_EXT_IMAGE') return;
+      const data = event.data.payload as { dataUrl?: string; url?: string; name: string; type?: string };
+      if (!data) return;
+      try {
+        const src = data.dataUrl || data.url!;
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const file = new File([blob], data.name || 'image.jpg', { type: blob.type || 'image/jpeg' });
+        const url = URL.createObjectURL(file);
+        blobUrlsRef.current.add(url);
+        setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2,9), url, name: file.name, size: file.size }]; });
+      } catch { /* 실패 무시 */ }
+    };
+    window.addEventListener('message', onExtMessage);
+
+    // ── 새 탭으로 열릴 때 (?from_ext=1): content script 경유 ──
     if (params.get('from_ext')) {
-      window.history.replaceState({}, '', '/'); // URL 정리
-      // 실뷰가 준비됐다고 content script에 알림
+      window.history.replaceState({}, '', '/');
       window.dispatchEvent(new Event('silview-ready'));
-      // content script가 백그라운드에서 이미지 받아 전달
       const handler = async (e: Event) => {
         const data = (e as CustomEvent).detail as { dataUrl?: string; url?: string; name: string };
         if (!data) return;
@@ -88,26 +111,7 @@ export default function App() {
       window.addEventListener('silview-ext-image', handler, { once: true });
     }
 
-    // 페이지 이미지 목록 (팝업 → 이 페이지 이미지 보기)
-    if (params.get('ext_images')) {
-      window.history.replaceState({}, '', '/');
-      const urls = decodeURIComponent(params.get('ext_images')!).split(',').filter(Boolean);
-      (async () => {
-        const newFiles: ViewerFile[] = [];
-        for (const src of urls) {
-          try {
-            const res = await fetch(src);
-            const blob = await res.blob();
-            if (!blob.type.startsWith('image/')) continue;
-            const name = src.split('/').pop()?.split('?')[0] || 'image.jpg';
-            const url = URL.createObjectURL(blob);
-            blobUrlsRef.current.add(url);
-            newFiles.push({ id: Math.random().toString(36).substr(2,9), url, name, size: blob.size });
-          } catch { /* CORS 실패 이미지 건너뜀 */ }
-        }
-        if (newFiles.length) { setCurrentIndex(0); setFiles(newFiles); }
-      })();
-    }
+    return () => window.removeEventListener('message', onExtMessage);
   }, []);
 
   // File Handler API — receives files when app is launched as default image viewer
