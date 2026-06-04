@@ -44,32 +44,49 @@ function ChoshgBanner() {
   }, []);
 
   useEffect(() => {
-    if (posts.length <= 2) return;
-    const t = setInterval(() => setIdx(p => (p + 2) % posts.length), 5000);
+    if (posts.length <= 4) return;
+    const t = setInterval(() => setIdx(p => (p + 4) % posts.length), 5000);
     return () => clearInterval(t);
   }, [posts.length]);
 
-  const visible = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
+  // 데스크탑: 4개 2열, 모바일: 2개 1열
+  const col1 = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
+  const col2 = posts.length ? [2, 3].map(i => posts[(idx + i) % posts.length]) : [];
+
+  const PostLink = ({ p }: { p: { title: string; link: string } }) => (
+    <a href={p.link} target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-1 min-w-0 group" style={{ textDecoration: 'none' }}>
+      <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
+      <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
+        {p.title.length > 30 ? p.title.slice(0, 30) + '…' : p.title}
+      </span>
+    </a>
+  );
 
   return (
-    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-3 gap-2" style={{ height: 58 }}>
+    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-4 gap-3" style={{ height: 76 }}>
       {!posts.length ? (
         <span className="text-[11px] text-gray-400">게시물 로딩 중…</span>
       ) : (
-        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span className="text-[11px] font-bold text-indigo-500">초실행관의 업무 치트키</span>
-          <div className="flex flex-col gap-0.5">
-            {visible.map((p, i) => (
-              <a key={i} href={p.link} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 min-w-0 no-underline group">
-                <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
-                <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
-                  {p.title.length > 28 ? p.title.slice(0, 28) + '…' : p.title}
-                </span>
-              </a>
-            ))}
+        <>
+          <div className="flex flex-col gap-0.5 flex-shrink-0">
+            <span className="text-[11px] font-bold text-indigo-500 whitespace-nowrap">초실행관의 업무 치트키</span>
           </div>
-        </div>
+          <div className="w-px h-8 bg-gray-100 flex-shrink-0" />
+          {/* 1열 */}
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
+            {col1.map((p, i) => <PostLink key={i} p={p} />)}
+          </div>
+          {/* 2열: 데스크탑만 */}
+          {col2.length > 0 && (
+            <>
+              <div className="hidden md:block w-px h-8 bg-gray-100 flex-shrink-0" />
+              <div className="hidden md:flex flex-col gap-1 flex-1 min-w-0">
+                {col2.map((p, i) => <PostLink key={i} p={p} />)}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
@@ -1265,23 +1282,6 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Filmstrip ──────────────────────────────────── */}
-          {files.length > 0 && !isEditing && (
-            <div className="h-[68px] bg-[#111827] border-t border-black/30 flex items-center px-3 gap-1.5 overflow-x-auto flex-shrink-0">
-              {files.map((file, idx) => (
-                <div
-                  key={`strip-${file.id}`}
-                  onClick={() => { setCurrentIndex(idx); resetViewer(); }}
-                  className={`h-[48px] w-[48px] rounded-lg cursor-pointer flex-shrink-0 overflow-hidden transition-all duration-150 ${currentIndex === idx
-                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111827] opacity-100 scale-105'
-                    : 'opacity-40 hover:opacity-70'
-                  }`}
-                >
-                  <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                </div>
-              ))}
-            </div>
-          )}
         </main>
       </div>
 
@@ -1313,6 +1313,24 @@ export default function App() {
 
       {/* ── 초실행관 배너 ──────────────────────────────────────── */}
       <ChoshgBanner />
+
+      {/* ── Filmstrip ──────────────────────────────────────────── */}
+      {files.length > 0 && !isEditing && (
+        <div className="h-[68px] bg-[#111827] border-t border-black/30 flex items-center px-3 gap-1.5 overflow-x-auto flex-shrink-0">
+          {files.map((file, idx) => (
+            <div
+              key={`strip-${file.id}`}
+              onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+              className={`h-[48px] w-[48px] rounded-lg cursor-pointer flex-shrink-0 overflow-hidden transition-all duration-150 ${currentIndex === idx
+                ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#111827] opacity-100 scale-105'
+                : 'opacity-40 hover:opacity-70'
+              }`}
+            >
+              <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Drag Overlay ───────────────────────────────────────── */}
       <AnimatePresence>
