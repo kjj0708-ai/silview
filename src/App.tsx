@@ -49,44 +49,25 @@ function ChoshgBanner() {
     return () => clearInterval(t);
   }, [posts.length]);
 
-  // 데스크탑: 4개 2열, 모바일: 2개 1열
-  const col1 = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
-  const col2 = posts.length ? [2, 3].map(i => posts[(idx + i) % posts.length]) : [];
-
-  const PostLink = ({ p }: { p: { title: string; link: string } }) => (
-    <a href={p.link} target="_blank" rel="noopener noreferrer"
-      className="flex items-center gap-1 min-w-0 group" style={{ textDecoration: 'none' }}>
-      <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
-      <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
-        {p.title.length > 30 ? p.title.slice(0, 30) + '…' : p.title}
-      </span>
-    </a>
-  );
+  const visible = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
 
   return (
-    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-4 gap-3" style={{ height: 76 }}>
+    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-4" style={{ height: 76 }}>
       {!posts.length ? (
         <span className="text-[11px] text-gray-400">게시물 로딩 중…</span>
       ) : (
-        <>
-          <div className="flex flex-col gap-0.5 flex-shrink-0">
-            <span className="text-[11px] font-bold text-indigo-500 whitespace-nowrap">초실행관의 업무 치트키</span>
-          </div>
-          <div className="w-px h-8 bg-gray-100 flex-shrink-0" />
-          {/* 1열 */}
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            {col1.map((p, i) => <PostLink key={i} p={p} />)}
-          </div>
-          {/* 2열: 데스크탑만 */}
-          {col2.length > 0 && (
-            <>
-              <div className="hidden md:block w-px h-8 bg-gray-100 flex-shrink-0" />
-              <div className="hidden md:flex flex-col gap-1 flex-1 min-w-0">
-                {col2.map((p, i) => <PostLink key={i} p={p} />)}
-              </div>
-            </>
-          )}
-        </>
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <span className="text-[11px] font-bold text-indigo-500">초실행관의 업무 치트키</span>
+          {visible.map((p, i) => (
+            <a key={i} href={p.link} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 min-w-0 group" style={{ textDecoration: 'none' }}>
+              <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
+              <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
+                {p.title}
+              </span>
+            </a>
+          ))}
+        </div>
       )}
     </div>
   );
