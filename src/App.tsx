@@ -1147,7 +1147,7 @@ export default function App() {
             <div className="flex-1 flex items-center justify-center bg-[#F9FAFB]">
               <div className="text-center space-y-7 max-w-xs px-8">
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-400 leading-relaxed">광고 없는 깔끔한 이미지 뷰어.<br />사진을 드래그하거나 불러와 감상하세요.</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">광고 없는 심플한 이미지 뷰어.<br />도형 및 텍스트 삽입, 블러 처리, 크기 조절 등 간편 편집 기능</p>
                 </div>
                 <div className="flex flex-col gap-2.5">
                   <div className="relative overflow-hidden bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 cursor-pointer">
