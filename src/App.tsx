@@ -115,12 +115,15 @@ export default function App() {
   useEffect(() => {
     const fromExt = new URLSearchParams(window.location.search).get('from_ext');
 
+    if (fromExt || window.parent !== window) console.log('[SilView] ext mode, fromExt =', fromExt);
+
     // 이미지 수신
     let received = false;
     const onExtMessage = async (event: MessageEvent) => {
       if (event.data?.type !== 'SILVIEW_EXT_IMAGE' || received) return;
+      console.log('[SilView] received SILVIEW_EXT_IMAGE');
       const data = event.data.payload as { dataUrl?: string; url?: string; name: string };
-      if (!data || (!data.dataUrl && !data.url)) return;
+      if (!data || (!data.dataUrl && !data.url)) { console.log('[SilView] payload empty!'); return; }
       received = true;
       try {
         const res = await fetch(data.dataUrl || data.url!);
@@ -129,14 +132,15 @@ export default function App() {
         const url = URL.createObjectURL(file);
         blobUrlsRef.current.add(url);
         setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2, 9), url, name: file.name, size: file.size }]; });
-      } catch { received = false; }
+        console.log('[SilView] image loaded into viewer ✓');
+      } catch (err) { received = false; console.log('[SilView] fetch failed:', err); }
     };
     window.addEventListener('message', onExtMessage);
 
     // 준비 신호 전송 → content script(새 탭) / panel.js(iframe)가 이를 받고 이미지 전송
     const sendReady = () => {
       if (window.parent !== window) window.parent.postMessage({ type: 'SILVIEW_READY' }, '*'); // iframe → 패널
-      if (fromExt) window.postMessage({ type: 'SILVIEW_READY' }, '*');                          // 새 탭 → content script
+      if (fromExt) { console.log('[SilView] sending SILVIEW_READY'); window.postMessage({ type: 'SILVIEW_READY' }, '*'); } // 새 탭 → content script
     };
     sendReady();
     const t1 = setTimeout(sendReady, 400);

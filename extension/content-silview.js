@@ -1,26 +1,31 @@
 // silview.choshg.com (document_start) — 새 탭으로 열릴 때 이미지 전달
-if (new URLSearchParams(location.search).get('from_ext')) {
+const _fromExt = new URLSearchParams(location.search).get('from_ext');
+console.log('[SilViewExt] content script loaded, from_ext =', _fromExt);
+
+if (_fromExt) {
   let delivered = false;
 
-  function deliver() {
+  function deliver(src) {
     if (delivered) return;
     chrome.storage.local.get('pendingImage').then((data) => {
+      console.log('[SilViewExt] deliver(' + src + '): pendingImage =', data.pendingImage ? 'EXISTS' : 'NULL');
       const img = data.pendingImage;
       if (!img || delivered) return;
       delivered = true;
       chrome.storage.local.remove('pendingImage');
-      // content script(isolated) → page(main): window.postMessage로 구조화 복제 전달
+      console.log('[SilViewExt] posting SILVIEW_EXT_IMAGE to page');
       window.postMessage({ type: 'SILVIEW_EXT_IMAGE', payload: img }, '*');
     });
   }
 
-  // App(React)이 준비됐다고 알리면 즉시 전달 (핸드셰이크)
   window.addEventListener('message', (e) => {
-    if (e.source === window && e.data && e.data.type === 'SILVIEW_READY') deliver();
+    if (e.source === window && e.data && e.data.type === 'SILVIEW_READY') {
+      console.log('[SilViewExt] received SILVIEW_READY from page');
+      deliver('READY');
+    }
   });
 
-  // 신호를 놓칠 경우 대비 fallback
-  setTimeout(deliver, 1000);
-  setTimeout(deliver, 2500);
-  setTimeout(deliver, 4000);
+  setTimeout(() => deliver('1s'), 1000);
+  setTimeout(() => deliver('2.5s'), 2500);
+  setTimeout(() => deliver('4s'), 4000);
 }
