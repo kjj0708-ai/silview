@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -834,7 +834,7 @@ export default function App() {
                 onClick={() => setShowFileMenu(!showFileMenu)}
                 className={`px-2 md:px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${showFileMenu ? 'bg-gray-100 text-gray-900' : 'hover:bg-gray-100'}`}
               >
-                <Upload size={12} className="md:hidden" />
+                <Settings size={13} className="md:hidden" />
                 <span className="hidden md:inline">파일</span>
               </button>
               <AnimatePresence>
@@ -906,9 +906,9 @@ export default function App() {
         </div>
 
         {/* Right controls */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
           {currentIndex !== null && !isEditing && (
-            <div className="flex items-center bg-gray-100 rounded-lg px-1 py-1 gap-0.5 mr-1">
+            <div className="hidden lg:flex items-center bg-gray-100 rounded-lg px-1 py-1 gap-0.5 mr-1">
               <button onClick={() => setRotation(r => r - 90)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 hover:text-gray-800 transition-all" title="반시계 회전"><RotateCcw size={14} /></button>
               <button onClick={() => setRotation(r => r + 90)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 hover:text-gray-800 transition-all" title="시계 회전"><RotateCw size={14} /></button>
               <div className="w-px h-3.5 bg-gray-300 mx-0.5" />
@@ -1183,7 +1183,7 @@ export default function App() {
             /* ── Image Viewer ────────────────────────────── */
             <div
               ref={containerRef}
-              className="flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing touch-none"
+              className="flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing touch-none p-4"
               style={{ background: 'radial-gradient(ellipse at 50% 40%, #252535 0%, #15151f 100%)' }}
               onTouchStart={(e) => {
                 if (e.touches.length === 2) {
@@ -1213,7 +1213,7 @@ export default function App() {
               {/* 드래그 레이어: 패닝 전용. 진입 애니메이션 없이 항상 표시 (Framer animate 미사용으로 stall 방지) */}
               <motion.div
                 key={files[currentIndex].id}
-                className="relative"
+                className="relative flex items-center justify-center max-w-full max-h-full"
                 drag
                 dragMomentum={false}
                 style={{ x: position.x, y: position.y }}
@@ -1223,7 +1223,7 @@ export default function App() {
                 <img
                   src={files[currentIndex].url}
                   alt={files[currentIndex].name}
-                  className="max-w-[92vw] max-h-[72vh] md:max-w-[80vw] md:max-h-[68vh] object-contain pointer-events-none select-none"
+                  className="max-w-full max-h-full object-contain pointer-events-none select-none"
                   style={{
                     filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.6))',
                     transform: `scale(${zoom}) rotate(${rotation}deg) scaleX(${flip ? -1 : 1})`,
