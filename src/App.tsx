@@ -63,9 +63,6 @@ function ChoshgBanner() {
     </a>
   );
 
-  // iframe(확장 패널) 안에서는 중복 방지를 위해 숨김
-  if (window.parent !== window) return null;
-
   return (
     <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-4 gap-3" style={{ height: 76 }}>
       {!posts.length ? (
