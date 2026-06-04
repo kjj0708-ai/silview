@@ -111,54 +111,41 @@ export default function App() {
   const undoHistoryRef = useRef<string[]>([]);
   useEffect(() => { undoHistoryRef.current = undoHistory; }, [undoHistory]);
 
-  // 크롬 확장프로그램 연동
+  // 크롬 확장프로그램 연동 (패널 iframe + 새 탭 모두 window.postMessage로 통일)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const fromExt = new URLSearchParams(window.location.search).get('from_ext');
 
-    // ── 사이드 패널 iframe: postMessage로 이미지 수신 ────────
-    // iframe 안에서 로드됐을 때 부모(패널)에게 준비 신호 전송
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'SILVIEW_READY' }, '*');
-    }
-
-    // 패널에서 이미지 데이터 수신
+    // 이미지 수신
+    let received = false;
     const onExtMessage = async (event: MessageEvent) => {
-      if (event.data?.type !== 'SILVIEW_EXT_IMAGE') return;
-      const data = event.data.payload as { dataUrl?: string; url?: string; name: string; type?: string };
-      if (!data) return;
+      if (event.data?.type !== 'SILVIEW_EXT_IMAGE' || received) return;
+      const data = event.data.payload as { dataUrl?: string; url?: string; name: string };
+      if (!data || (!data.dataUrl && !data.url)) return;
+      received = true;
       try {
-        const src = data.dataUrl || data.url!;
-        const res = await fetch(src);
+        const res = await fetch(data.dataUrl || data.url!);
         const blob = await res.blob();
         const file = new File([blob], data.name || 'image.jpg', { type: blob.type || 'image/jpeg' });
         const url = URL.createObjectURL(file);
         blobUrlsRef.current.add(url);
-        setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2,9), url, name: file.name, size: file.size }]; });
-      } catch { /* 실패 무시 */ }
+        setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2, 9), url, name: file.name, size: file.size }]; });
+      } catch { received = false; }
     };
     window.addEventListener('message', onExtMessage);
 
-    // ── 새 탭으로 열릴 때 (?from_ext=1): content script 경유 ──
-    if (params.get('from_ext')) {
-      window.history.replaceState({}, '', '/');
-      window.dispatchEvent(new Event('silview-ready'));
-      const handler = async (e: Event) => {
-        const data = (e as CustomEvent).detail as { dataUrl?: string; url?: string; name: string };
-        if (!data) return;
-        try {
-          const src = data.dataUrl || data.url!;
-          const res = await fetch(src);
-          const blob = await res.blob();
-          const file = new File([blob], data.name || 'image.jpg', { type: blob.type || 'image/jpeg' });
-          const url = URL.createObjectURL(file);
-          blobUrlsRef.current.add(url);
-          setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2,9), url, name: file.name, size: file.size }]; });
-        } catch { /* 실패 무시 */ }
-      };
-      window.addEventListener('silview-ext-image', handler, { once: true });
-    }
+    // 준비 신호 전송 → content script(새 탭) / panel.js(iframe)가 이를 받고 이미지 전송
+    const sendReady = () => {
+      if (window.parent !== window) window.parent.postMessage({ type: 'SILVIEW_READY' }, '*'); // iframe → 패널
+      if (fromExt) window.postMessage({ type: 'SILVIEW_READY' }, '*');                          // 새 탭 → content script
+    };
+    sendReady();
+    const t1 = setTimeout(sendReady, 400);
+    const t2 = setTimeout(sendReady, 1200);
 
-    return () => window.removeEventListener('message', onExtMessage);
+    return () => {
+      window.removeEventListener('message', onExtMessage);
+      clearTimeout(t1); clearTimeout(t2);
+    };
   }, []);
 
   // File Handler API — receives files when app is launched as default image viewer
