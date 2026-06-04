@@ -2,8 +2,13 @@
 function setupMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: 'open-in-silview',
+      id: 'silview-panel',
       title: '실뷰 패널에 담기 🖼',
+      contexts: ['image']
+    });
+    chrome.contextMenus.create({
+      id: 'silview-newtab',
+      title: '실뷰 새 탭으로 열기 ↗',
       contexts: ['image']
     });
   });
@@ -28,18 +33,20 @@ async function blobToDataUrl(blob) {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(binary)}`;
 }
 
-// ── 이미지 우클릭 → 사이드 패널에 담기 (누적) ──────────────
+// ── 이미지 우클릭 → 패널에 담기 / 새 탭으로 열기 ────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== 'open-in-silview' || !info.srcUrl) return;
+  const toPanel = info.menuItemId === 'silview-panel';
+  const toNewTab = info.menuItemId === 'silview-newtab';
+  if ((!toPanel && !toNewTab) || !info.srcUrl) return;
 
   const fileName = (info.srcUrl.split('/').pop() || 'image.jpg').split('?')[0];
 
-  // 1) 사용자 제스처 안에서 패널 즉시 열기 (await 전에!)
-  if (tab && tab.windowId !== undefined) {
+  // 패널 모드: 사용자 제스처 안에서 패널 즉시 열기 (await 전에!)
+  if (toPanel && tab && tab.windowId !== undefined) {
     chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
   }
 
-  // 2) 이미지를 storage에 저장 → 패널이 onChanged로 받아 누적
+  // 이미지를 storage에 저장
   fetch(info.srcUrl)
     .then(res => res.blob())
     .then(blob => blobToDataUrl(blob))
@@ -48,7 +55,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     }))
     .catch(() => chrome.storage.local.set({
       pendingImage: { url: info.srcUrl, name: fileName, ts: Date.now() }
-    }));
+    }))
+    .finally(() => {
+      // 새 탭 모드: storage 저장 후 새 탭 열기
+      if (toNewTab) chrome.tabs.create({ url: 'https://silview.choshg.com/?from_ext=1' });
+    });
 });
 
 // ── 메시지: 앱(새 탭)으로 열기 ──────────────────────────────
