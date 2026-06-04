@@ -497,6 +497,7 @@ export default function App() {
         width: cW, height: cH,
         backgroundColor: '#1a1a2e',
         preserveObjectStacking: true,
+        defaultCursor: 'grab',
       });
       fabricCanvasRef.current = canvas;
 
@@ -551,10 +552,14 @@ export default function App() {
         const isBg = !opt.target || (opt.target as any).name === 'baseImage';
         const isTouch1 = e.touches && e.touches.length === 1;
         const isTouch2 = e.touches && e.touches.length === 2;
+        const isLeftMouse = !e.touches && (e.button === 0 || e.button === undefined);
 
-        if ((isTouch1 && isBg) || isTouch2 || e.altKey || e.button === 1) {
+        // 빈 배경/이미지를 그냥 드래그하면 손모양으로 이동 (객체 위는 객체 이동)
+        if ((isTouch1 && isBg) || isTouch2 || (isLeftMouse && isBg) || e.altKey || e.button === 1) {
           isPanning = true;
           canvas.selection = false;
+          canvas.defaultCursor = 'grabbing';
+          canvas.setCursor('grabbing');
           if (isTouch2) {
             lastX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             lastY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
@@ -612,6 +617,8 @@ export default function App() {
           canvas.setViewportTransform(canvas.viewportTransform!);
           isPanning = false;
           canvas.selection = true;
+          canvas.defaultCursor = 'grab';
+          canvas.setCursor('grab');
           initDist = 0;
         }
       });
@@ -1139,14 +1146,6 @@ export default function App() {
               {/* Fabric canvas */}
               <div className="flex-1 relative overflow-hidden bg-[#1a1a2e]">
                 <canvas ref={canvasRef} />
-                <div className="absolute bottom-5 left-5 pointer-events-none flex flex-col gap-1.5 z-10">
-                  <div className="px-3 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 text-white/60 text-[10px] rounded-xl flex items-center gap-2">
-                    <kbd className="px-1.5 py-0.5 bg-white/20 rounded text-[9px] font-bold">Alt</kbd>+드래그 또는 휠클릭 → 이동
-                  </div>
-                  <div className="px-3 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 text-white/60 text-[10px] rounded-xl">
-                    마우스 휠 → 확대/축소
-                  </div>
-                </div>
               </div>
             </div>
 
