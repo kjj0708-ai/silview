@@ -69,8 +69,6 @@ export default function App() {
     // ── 사이드 패널 iframe: postMessage로 이미지 수신 ────────
     // iframe 안에서 로드됐을 때 부모(패널)에게 준비 신호 전송
     if (window.parent !== window) {
-      window.parent.postMessage({ type: 'SILVIEW_READY' }, 'chrome-extension://');
-      // 와일드카드가 안 되므로 * 사용 (확장 패널만 postMessage 하므로 안전)
       window.parent.postMessage({ type: 'SILVIEW_READY' }, '*');
     }
 
