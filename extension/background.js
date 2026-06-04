@@ -3,7 +3,7 @@ function setupMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: 'open-in-silview',
-      title: '실뷰에서 열기 🖼',
+      title: '실뷰 패널에 담기 🖼',
       contexts: ['image']
     });
   });
@@ -28,13 +28,18 @@ async function blobToDataUrl(blob) {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(binary)}`;
 }
 
-// ── 이미지 우클릭 → 새 탭(앱)에서 바로 열기 ────────────────
+// ── 이미지 우클릭 → 사이드 패널에 담기 (누적) ──────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'open-in-silview' || !info.srcUrl) return;
 
   const fileName = (info.srcUrl.split('/').pop() || 'image.jpg').split('?')[0];
 
-  // 이미지를 storage에 저장한 뒤 앱을 새 탭으로 열기
+  // 1) 사용자 제스처 안에서 패널 즉시 열기 (await 전에!)
+  if (tab && tab.windowId !== undefined) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+  }
+
+  // 2) 이미지를 storage에 저장 → 패널이 onChanged로 받아 누적
   fetch(info.srcUrl)
     .then(res => res.blob())
     .then(blob => blobToDataUrl(blob))
@@ -43,10 +48,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     }))
     .catch(() => chrome.storage.local.set({
       pendingImage: { url: info.srcUrl, name: fileName, ts: Date.now() }
-    }))
-    .finally(() => {
-      chrome.tabs.create({ url: 'https://silview.choshg.com/?from_ext=1' });
-    });
+    }));
 });
 
 // ── 메시지: 앱(새 탭)으로 열기 ──────────────────────────────

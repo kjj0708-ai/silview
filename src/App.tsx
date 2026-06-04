@@ -80,7 +80,7 @@ export default function App() {
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  const [showGallery, setShowGallery] = useState(() => window.innerWidth >= 768);
+  const [showGallery, setShowGallery] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
@@ -117,21 +117,23 @@ export default function App() {
   useEffect(() => {
     const fromExt = new URLSearchParams(window.location.search).get('from_ext');
 
-    // 이미지 수신
-    let received = false;
+    // 이미지 수신 — ts로 중복 방지하며 여러 장 누적
+    const processedTs = new Set<number>();
     const onExtMessage = async (event: MessageEvent) => {
-      if (event.data?.type !== 'SILVIEW_EXT_IMAGE' || received) return;
-      const data = event.data.payload as { dataUrl?: string; url?: string; name: string };
+      if (event.data?.type !== 'SILVIEW_EXT_IMAGE') return;
+      const data = event.data.payload as { dataUrl?: string; url?: string; name: string; ts?: number };
       if (!data || (!data.dataUrl && !data.url)) return;
-      received = true;
+      if (data.ts && processedTs.has(data.ts)) return; // 같은 이미지 중복 전송 무시
+      if (data.ts) processedTs.add(data.ts);
       try {
         const res = await fetch(data.dataUrl || data.url!);
         const blob = await res.blob();
         const file = new File([blob], data.name || 'image.jpg', { type: blob.type || 'image/jpeg' });
         const url = URL.createObjectURL(file);
         blobUrlsRef.current.add(url);
+        // 새로 담은 이미지로 자동 이동 (차례로 보기)
         setFiles(prev => { setCurrentIndex(prev.length); return [...prev, { id: Math.random().toString(36).substr(2, 9), url, name: file.name, size: file.size }]; });
-      } catch { received = false; }
+      } catch { if (data.ts) processedTs.delete(data.ts); }
     };
     window.addEventListener('message', onExtMessage);
 
@@ -296,6 +298,22 @@ export default function App() {
       setCurrentIndex(prev => (prev !== null && prev >= files.length - 1) ? Math.max(0, files.length - 2) : prev);
     } else if (currentIndex !== null && idx < currentIndex) {
       setCurrentIndex(prev => (prev ?? 0) - 1);
+    }
+  };
+
+  // 담긴 이미지 전체를 순차 다운로드
+  const downloadAll = async () => {
+    if (files.length === 0) return;
+    setShowFileMenu(false);
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const a = document.createElement('a');
+      a.href = f.url;
+      a.download = f.name || `image_${i + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await new Promise(r => setTimeout(r, 350)); // 브라우저 연속 다운로드 처리 간격
     }
   };
 
@@ -866,6 +884,14 @@ export default function App() {
                         </button>
                       )
                     ))}
+                    {files.length > 0 && (
+                      <>
+                        <div className="h-px bg-gray-100 my-1 mx-3" />
+                        <button onClick={downloadAll} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700">
+                          <Download size={13} className="text-gray-400" /> 전체 다운로드 ({files.length}장)
+                        </button>
+                      </>
+                    )}
                     <div className="h-px bg-gray-100 my-1 mx-3" />
                     <button onClick={() => setShowInstallInfo(true)} className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2.5 transition-colors text-blue-600">
                       <Monitor size={13} /> PC 앱으로 설치
