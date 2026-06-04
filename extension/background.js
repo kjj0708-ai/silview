@@ -28,30 +28,24 @@ async function blobToDataUrl(blob) {
   return `data:${blob.type || 'image/jpeg'};base64,${btoa(binary)}`;
 }
 
-// ── 이미지 우클릭 → 패널 열기 + 이미지 저장 ───────────────
+// ── 이미지 우클릭 → 새 탭(앱)에서 바로 열기 ────────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'open-in-silview' || !info.srcUrl) return;
 
   const fileName = (info.srcUrl.split('/').pop() || 'image.jpg').split('?')[0];
 
-  // 1) 사용자 제스처 안에서 패널 즉시 열기 (await 전에!)
-  if (tab && tab.windowId !== undefined) {
-    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
-  }
-
-  // 2) 이미지 fetch는 비동기로 storage에 저장 (panel이 onChanged로 받음)
+  // 이미지를 storage에 저장한 뒤 앱을 새 탭으로 열기
   fetch(info.srcUrl)
     .then(res => res.blob())
     .then(blob => blobToDataUrl(blob))
-    .then(dataUrl => {
-      chrome.storage.local.set({
-        pendingImage: { dataUrl, name: fileName, type: 'image/jpeg', ts: Date.now() }
-      });
-    })
-    .catch(() => {
-      chrome.storage.local.set({
-        pendingImage: { url: info.srcUrl, name: fileName, ts: Date.now() }
-      });
+    .then(dataUrl => chrome.storage.local.set({
+      pendingImage: { dataUrl, name: fileName, type: 'image/jpeg', ts: Date.now() }
+    }))
+    .catch(() => chrome.storage.local.set({
+      pendingImage: { url: info.srcUrl, name: fileName, ts: Date.now() }
+    }))
+    .finally(() => {
+      chrome.tabs.create({ url: 'https://silview.choshg.com/?from_ext=1' });
     });
 });
 
