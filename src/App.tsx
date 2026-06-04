@@ -1157,13 +1157,6 @@ export default function App() {
             /* ── Empty State ─────────────────────────────── */
             <div className="flex-1 flex items-center justify-center bg-[#F9FAFB]">
               <div className="text-center space-y-7 max-w-xs px-8">
-                <div className="relative mx-auto w-28 h-28">
-                  <div className="absolute inset-2 bg-blue-100 rounded-3xl rotate-6 opacity-50" />
-                  <div className="absolute inset-2 bg-indigo-50 rounded-3xl -rotate-3" />
-                  <div className="relative w-28 h-28 border-2 border-dashed border-blue-200 rounded-3xl flex items-center justify-center hover:border-blue-400 transition-all group cursor-default">
-                    <Upload size={30} className="text-blue-300 group-hover:text-blue-500 transition-colors" />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <p className="text-sm text-gray-400 leading-relaxed">광고 없는 깔끔한 이미지 뷰어.<br />사진을 드래그하거나 불러와 감상하세요.</p>
                 </div>
