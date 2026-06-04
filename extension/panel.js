@@ -50,6 +50,28 @@ frame.addEventListener('load', () => {
   setTimeout(hideLoading, 1000);
 });
 
+// ── 초실행관 배너 ────────────────────────────────────────────
+(function(){
+  let posts=[],idx=0;
+  async function init(){
+    try{
+      const xml=new DOMParser().parseFromString(await(await fetch('https://us-central1-quick-prompt-kjj.cloudfunctions.net/getRss')).text(),'application/xml');
+      posts=Array.from(xml.querySelectorAll('item')).slice(0,20).map(e=>({
+        title:e.querySelector('title')?.textContent?.trim()||'게시물',
+        link:e.querySelector('link')?.textContent?.trim()||'https://choshg.com'
+      }));
+    }catch{posts=[];}
+    render();
+    if(posts.length>2)setInterval(()=>{idx=(idx+2)%posts.length;render();},5000);
+  }
+  function render(){
+    const w=document.getElementById('choshg-inner');if(!w||!posts.length)return;
+    const v=[0,1].map(i=>posts[(idx+i)%posts.length]);
+    w.innerHTML=`<div class="cg-wrap"><span class="cg-title">초실행관의 업무 치트키</span><div class="cg-list">${v.map(p=>`<a class="cg-link" href="${p.link}" target="_blank" rel="noopener"><span class="cg-bullet">▸</span><span class="cg-text">${p.title.length>28?p.title.slice(0,28)+'…':p.title}</span></a>`).join('')}</div></div>`;
+  }
+  init();
+})();
+
 // ── 앱으로 열기 ──────────────────────────────────────────────
 btnOpenApp.addEventListener('click', () => {
   if (currentImageData) {

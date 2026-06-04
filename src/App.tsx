@@ -24,6 +24,57 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// ── 초실행관 배너 컴포넌트 ────────────────────────────────────
+function ChoshgBanner() {
+  const [posts, setPosts] = useState<{ title: string; link: string }[]>([]);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    fetch('https://us-central1-quick-prompt-kjj.cloudfunctions.net/getRss')
+      .then(r => r.text())
+      .then(text => {
+        const xml = new DOMParser().parseFromString(text, 'application/xml');
+        const items = Array.from(xml.querySelectorAll('item')).slice(0, 20).map(e => ({
+          title: e.querySelector('title')?.textContent?.trim() || '게시물',
+          link: e.querySelector('link')?.textContent?.trim() || 'https://choshg.com',
+        }));
+        setPosts(items);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (posts.length <= 2) return;
+    const t = setInterval(() => setIdx(p => (p + 2) % posts.length), 5000);
+    return () => clearInterval(t);
+  }, [posts.length]);
+
+  const visible = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
+
+  return (
+    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-3 gap-2" style={{ height: 58 }}>
+      {!posts.length ? (
+        <span className="text-[11px] text-gray-400">게시물 로딩 중…</span>
+      ) : (
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <span className="text-[11px] font-bold text-indigo-500">초실행관의 업무 치트키</span>
+          <div className="flex flex-col gap-0.5">
+            {visible.map((p, i) => (
+              <a key={i} href={p.link} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 min-w-0 no-underline group">
+                <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
+                <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
+                  {p.title.length > 28 ? p.title.slice(0, 28) + '…' : p.title}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [files, setFiles] = useState<ViewerFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
@@ -1259,6 +1310,9 @@ export default function App() {
           <span className="text-gray-600 font-bold tracking-widest">SILVIEW V1.4</span>
         </div>
       </footer>
+
+      {/* ── 초실행관 배너 ──────────────────────────────────────── */}
+      <ChoshgBanner />
 
       {/* ── Drag Overlay ───────────────────────────────────────── */}
       <AnimatePresence>

@@ -100,6 +100,15 @@
       animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    #choshg-banner{background:#fff;border-top:1px solid #e5e7eb;height:58px;display:flex;align-items:center;padding:0 12px;flex-shrink:0;}
+    #choshg-inner{flex:1;overflow:hidden;}
+    .cg-wrap{display:flex;flex-direction:column;gap:3px;width:100%;min-width:0;}
+    .cg-title{font-size:11px;font-weight:700;color:#6366f1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cg-list{display:flex;flex-direction:column;gap:2px;}
+    .cg-link{display:flex;align-items:center;gap:4px;text-decoration:none;color:inherit;min-width:0;}
+    .cg-bullet{font-size:11px;color:#9ca3af;flex-shrink:0;}
+    .cg-text{font-size:13px;font-weight:500;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s;}
+    .cg-link:hover .cg-text{color:#6366f1;}
   </style>
 </head>
 <body>
@@ -130,6 +139,10 @@
       src="https://silview.choshg.com"
       allow="clipboard-write; clipboard-read"
     ></iframe>
+  </div>
+
+  <div id="choshg-banner">
+    <div id="choshg-inner"><span style="font-size:11px;color:#9ca3af">게시물 로딩 중…</span></div>
   </div>
 
   <script src="panel.js"></script>
