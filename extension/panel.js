@@ -29,11 +29,12 @@ function sendImageToFrame(data) {
 }
 
 // ── 백그라운드에서 대기 이미지 요청 ─────────────────────────
-chrome.runtime.sendMessage({ type: 'GET_PENDING_IMAGE' }, (imageData) => {
-  if (imageData) {
-    pendingImageData = imageData;
-    currentImageData = imageData;
-  }
+chrome.storage.local.get('pendingImage').then((data) => {
+  const imageData = data.pendingImage || null;
+  chrome.storage.local.remove('pendingImage');
+  if (!imageData) return;
+  pendingImageData = imageData;
+  currentImageData = imageData;
 });
 
 // ── 실뷰 READY 메시지 수신 → 즉시 숨김 ──────────────────────

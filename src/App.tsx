@@ -1165,7 +1165,6 @@ export default function App() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-gray-900 tracking-tight">실뷰(SilView)</h2>
                   <p className="text-sm text-gray-400 leading-relaxed">광고 없는 깔끔한 이미지 뷰어.<br />사진을 드래그하거나 불러와 감상하세요.</p>
                 </div>
                 <div className="flex flex-col gap-2.5">
