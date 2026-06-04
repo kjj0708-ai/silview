@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>실뷰(SilView) — 광고 없는 심플 이미지 뷰어 · 편집기</title>
+<meta name="description" content="알씨 광고에 지치셨나요? 실뷰는 광고 0, 설치 0. 웹에서 바로 여는 깔끔한 이미지 뷰어 + 꼭 필요한 편집 기능만." />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0b0f1a;
+    --card: #151b2b;
+    --card2: #1c2536;
+    --line: #283349;
+    --blue: #2563eb;
+    --blue-light: #60a5fa;
+    --text: #e8edf6;
+    --muted: #94a3b8;
+    --red: #ef4444;
+    --green: #22c55e;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 800px; margin: 0 auto; overflow: hidden; }
+  section { padding: 64px 28px; }
+  .center { text-align: center; }
+
+  /* ── HERO ── */
+  .hero {
+    background:
+      radial-gradient(1000px 500px at 50% -10%, rgba(37,99,235,0.35), transparent 60%),
+      linear-gradient(180deg, #0d1322 0%, var(--bg) 100%);
+    padding-top: 80px;
+    padding-bottom: 72px;
+  }
+  .logo-badge {
+    width: 84px; height: 84px; border-radius: 22px;
+    margin: 0 auto 24px;
+    box-shadow: 0 16px 40px rgba(37,99,235,0.4);
+    display: block;
+  }
+  .hero h1 {
+    font-size: 40px; font-weight: 800; letter-spacing: -1.2px;
+    line-height: 1.2; margin-bottom: 18px;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { font-size: 17px; color: var(--muted); margin-bottom: 32px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(37,99,235,0.15); border: 1px solid rgba(96,165,250,0.35);
+    color: var(--blue-light); font-size: 13px; font-weight: 600;
+    padding: 7px 14px; border-radius: 999px; margin-bottom: 28px;
+  }
+  .cta {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+    color: #fff; font-size: 17px; font-weight: 700;
+    padding: 16px 38px; border-radius: 14px; text-decoration: none;
+    box-shadow: 0 12px 30px rgba(37,99,235,0.45);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(37,99,235,0.55); }
+  .cta-sub { font-size: 13px; color: var(--muted); margin-top: 14px; }
+
+  /* ── 공통 헤딩 ── */
+  .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--blue-light); text-transform: uppercase; margin-bottom: 12px; }
+  h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.25; margin-bottom: 14px; }
+  .lead { font-size: 16px; color: var(--muted); max-width: 560px; margin: 0 auto; }
+
+  /* ── PAIN ── */
+  .pain { background: linear-gradient(180deg, #1a0d10 0%, var(--bg) 100%); }
+  .pain h2 { color: #fca5a5; }
+  .pain-list { margin-top: 34px; display: flex; flex-direction: column; gap: 14px; }
+  .pain-item {
+    display: flex; align-items: center; gap: 14px; text-align: left;
+    background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.22);
+    padding: 16px 18px; border-radius: 14px;
+  }
+  .pain-item .x {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px;
+    background: rgba(239,68,68,0.18); color: #fca5a5;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;
+  }
+  .pain-item b { color: #fecaca; font-weight: 700; }
+  .pain-item span { color: var(--muted); font-size: 14px; }
+
+  /* ── FEATURES ── */
+  .grid {
+    margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .feat {
+    background: linear-gradient(160deg, var(--card), var(--card2));
+    border: 1px solid var(--line); border-radius: 18px; padding: 26px 22px;
+    text-align: left; transition: transform .15s, border-color .15s;
+  }
+  .feat:hover { transform: translateY(-4px); border-color: rgba(96,165,250,0.5); }
+  .feat .ic {
+    width: 48px; height: 48px; border-radius: 13px; margin-bottom: 16px;
+    background: rgba(37,99,235,0.15); display: flex; align-items: center; justify-content: center;
+  }
+  .feat .ic svg { width: 24px; height: 24px; stroke: var(--blue-light); }
+  .feat h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .feat p { font-size: 14px; color: var(--muted); }
+  .feat.wide { grid-column: 1 / -1; }
+
+  /* ── COMPARE ── */
+  .compare { background: linear-gradient(180deg, #0d1322, var(--bg)); }
+  .ctable {
+    margin-top: 36px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+    background: var(--card);
+  }
+  .crow { display: grid; grid-template-columns: 1.4fr 1fr 1fr; }
+  .crow > div { padding: 16px 14px; border-bottom: 1px solid var(--line); font-size: 14px; display: flex; align-items: center; }
+  .crow:last-child > div { border-bottom: none; }
+  .crow.head > div { font-weight: 800; font-size: 14px; background: var(--card2); }
+  .crow .label { color: var(--muted); text-align: left; }
+  .col-them { color: #fca5a5; justify-content: center; text-align: center; }
+  .col-us { color: #86efac; font-weight: 700; justify-content: center; text-align: center; background: rgba(34,197,94,0.05); }
+  .head .col-us { color: #fff; background: rgba(37,99,235,0.18); }
+  .head .col-them { color: var(--muted); }
+
+  /* ── BENEFITS strip ── */
+  .strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 36px; }
+  .chip {
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 11px 20px; font-size: 14px; font-weight: 600; color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .chip .dot { color: var(--green); font-weight: 800; }
+
+  /* ── FINAL CTA ── */
+  .final {
+    background: radial-gradient(800px 400px at 50% 120%, rgba(37,99,235,0.35), transparent 60%), var(--bg);
+    padding-bottom: 80px;
+  }
+  .final h2 { font-size: 32px; }
+  .footer { padding: 30px 28px 50px; text-align: center; color: #5b6679; font-size: 13px; border-top: 1px solid var(--line); }
+  .footer a { color: var(--blue-light); text-decoration: none; }
+
+  @media (max-width: 560px) {
+    .hero h1 { font-size: 32px; }
+    h2 { font-size: 25px; }
+    .grid { grid-template-columns: 1fr; }
+    section { padding: 52px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <section class="hero center">
+    <img src="/new-icon.png" alt="실뷰" class="logo-badge" />
+    <div class="pill">⚡ 광고 0 · 설치 0 · 회원가입 0</div>
+    <h1>광고 떡칠 이미지 뷰어,<br /><span class="grad">이제 그만 보세요.</span></h1>
+    <p>알씨 켤 때마다 뜨던 그 팝업·배너·번들 설치.<br />실뷰는 웹에서 바로 열리는 깨끗한 이미지 뷰어입니다.</p>
+    <a class="cta" href="https://silview.choshg.com" target="_blank" rel="noopener">실뷰 바로 쓰기 →</a>
+    <div class="cta-sub">설치 없이 클릭 한 번. 모바일·PC 어디서나.</div>
+  </section>
+
+  <!-- PAIN -->
+  <section class="pain center">
+    <div class="eyebrow" style="color:#fca5a5">이런 경험, 있으시죠?</div>
+    <h2>사진 한 장 보려다<br />광고에 둘러싸인 적</h2>
+    <p class="lead">무료 뷰어라고 깔았더니, 정작 화면 절반이 광고.</p>
+    <div class="pain-list">
+      <div class="pain-item"><div class="x">✕</div><div><b>실행하자마자 뜨는 전면 광고</b><br /><span>사진 보기도 전에 닫기 버튼부터 찾는 일상</span></div></div>
+      <div class="pain-item"><div class="x">✕</div><div><b>화면 구석구석 배너 떡칠</b><br /><span>이미지보다 광고가 더 눈에 들어오는 아이러니</span></div></div>
+      <div class="pain-item"><div class="x">✕</div><div><b>슬쩍 끼워 설치되는 번들 프로그램</b><br /><span>나도 모르게 깔린 툴바·백신·청소 프로그램</span></div></div>
+      <div class="pain-item"><div class="x">✕</div><div><b>업데이트마다 늘어나는 무게</b><br /><span>가벼운 뷰어 하나가 점점 무거워지는 PC</span></div></div>
+    </div>
+  </section>
+
+  <!-- SOLUTION -->
+  <section class="center">
+    <div class="eyebrow">그래서 만들었습니다</div>
+    <h2>딱 필요한 것만,<br /><span class="grad" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent">실뷰</span></h2>
+    <p class="lead">광고도, 설치도, 회원가입도 없습니다. 사진을 끌어다 놓거나 우클릭 한 번이면 끝. 보는 것도, 간단히 손보는 것도 한 화면에서.</p>
+    <div class="strip">
+      <div class="chip"><span class="dot">✓</span> 광고 전혀 없음</div>
+      <div class="chip"><span class="dot">✓</span> 설치 불필요</div>
+      <div class="chip"><span class="dot">✓</span> 100% 무료</div>
+      <div class="chip"><span class="dot">✓</span> 회원가입 없음</div>
+      <div class="chip"><span class="dot">✓</span> 모바일·PC 모두</div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section>
+    <div class="center">
+      <div class="eyebrow">꼭 필요한 편집 기능만</div>
+      <h2>복잡한 포토샵은 그만,<br />클릭 몇 번이면 충분</h2>
+      <p class="lead">업무용 캡처, 개인정보 가리기, 간단한 강조 표시.<br />자주 쓰는 기능만 골라 담았습니다.</p>
+    </div>
+    <div class="grid">
+      <div class="feat wide">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg></div>
+        <h3>🔒 블러 처리 — 가장 자주 쓰는 기능</h3>
+        <p>이름, 전화번호, 계좌, 얼굴… 가리고 싶은 곳을 드래그만 하면 즉시 흐림 처리. 캡처 공유 전 개인정보 보호에 딱.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
+        <h3>도형 삽입</h3>
+        <p>사각형·원·선·화살표로 핵심을 콕 집어 강조.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg></div>
+        <h3>텍스트 삽입</h3>
+        <p>설명, 메모, 라벨을 원하는 색으로 자유롭게.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6a2 2 0 0 0-2-2H9M3 9v9a2 2 0 0 0 2 2h10"/></svg></div>
+        <h3>자르기 · 크기 조절</h3>
+        <p>필요한 부분만 잘라내고 원하는 크기로 리사이즈.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg></div>
+        <h3>회전 · 좌우반전</h3>
+        <p>90° 회전과 미러링으로 사진 방향을 한 번에.</p>
+      </div>
+      <div class="feat wide">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></div>
+        <h3>🖱 크롬 확장 — 웹 이미지 우클릭 한 번</h3>
+        <p>아무 웹페이지에서나 이미지를 우클릭 → <b>"실뷰에서 열기"</b>. 저장·업로드 없이 바로 보고 편집하세요. (확장 프로그램 설치 시)</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE -->
+  <section class="compare center">
+    <div class="eyebrow">한눈에 비교</div>
+    <h2>왜 실뷰일까요?</h2>
+    <div class="ctable">
+      <div class="crow head">
+        <div class="label">&nbsp;</div>
+        <div class="col-them">광고형 무료 뷰어</div>
+        <div class="col-us">실뷰</div>
+      </div>
+      <div class="crow"><div class="label">광고</div><div class="col-them">팝업 · 배너 가득</div><div class="col-us">전혀 없음</div></div>
+      <div class="crow"><div class="label">설치</div><div class="col-them">설치 + 번들 프로그램</div><div class="col-us">설치 불필요</div></div>
+      <div class="crow"><div class="label">실행 속도</div><div class="col-them">광고 로딩 대기</div><div class="col-us">즉시 실행</div></div>
+      <div class="crow"><div class="label">편집 기능</div><div class="col-them">복잡하거나 유료</div><div class="col-us">핵심만 · 무료</div></div>
+      <div class="crow"><div class="label">개인정보 가리기</div><div class="col-them">별도 프로그램 필요</div><div class="col-us">블러 클릭 한 번</div></div>
+      <div class="crow"><div class="label">사용 환경</div><div class="col-them">PC 설치판만</div><div class="col-us">PC · 모바일 웹</div></div>
+      <div class="crow"><div class="label">비용</div><div class="col-them">무료(광고 수익)</div><div class="col-us">완전 무료</div></div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final center">
+    <h2>이제, 광고 없이<br />사진을 봅니다.</h2>
+    <p class="lead" style="margin-bottom:30px">설치도 회원가입도 없습니다. 지금 바로 열어보세요.</p>
+    <a class="cta" href="https://silview.choshg.com" target="_blank" rel="noopener">실뷰 시작하기 →</a>
+    <div class="cta-sub">silview.choshg.com</div>
+  </section>
+
+  <div class="footer">
+    실뷰(SilView) · 광고 없는 심플 이미지 뷰어 &amp; 편집기<br />
+    <a href="https://silview.choshg.com" target="_blank" rel="noopener">silview.choshg.com</a>
+  </div>
+
+</div>
+</body>
+</html>
