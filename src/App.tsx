@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings,
+  ScanText, Copy, CheckCheck
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -84,6 +85,9 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
+  const [isOcring, setIsOcring] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const [ocrCopied, setOcrCopied] = useState(false);
   const [brushColor, setBrushColor] = useState('#3b82f6');
   const [isDashed, setIsDashed] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -192,7 +196,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.title = '실뷰 - 광고 없는 간편 편집 기능 이미지 뷰어';
+    document.title = '실뷰 2 - AI 텍스트 추출 · 광고 없는 이미지 뷰어';
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -315,6 +319,65 @@ export default function App() {
       a.remove();
       await new Promise(r => setTimeout(r, 350)); // 브라우저 연속 다운로드 처리 간격
     }
+  };
+
+  // ── AI 텍스트 추출 (Gemini Vision) ─────────────────────────
+  const extractText = async () => {
+    if (currentIndex === null || isOcring) return;
+    setIsOcring(true);
+    setOcrResult(null);
+    try {
+      const imgUrl = files[currentIndex].url;
+      // dataURL or blob URL → base64
+      let base64: string;
+      let mimeType = 'image/jpeg';
+      if (imgUrl.startsWith('data:')) {
+        const [header, data] = imgUrl.split(',');
+        base64 = data;
+        mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+      } else {
+        const res = await fetch(imgUrl);
+        const blob = await res.blob();
+        mimeType = blob.type || 'image/jpeg';
+        const buf = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192)
+          binary += String.fromCharCode(...bytes.slice(i, i + 8192));
+        base64 = btoa(binary);
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) { setOcrResult('⚠️ GEMINI_API_KEY가 설정되지 않았습니다.'); return; }
+
+      const body = {
+        contents: [{
+          parts: [
+            { text: '이 이미지에서 모든 텍스트를 추출해줘. 텍스트만 그대로 출력하고, 원본 줄바꿈을 유지해줘. 텍스트가 없으면 "텍스트 없음"이라고만 출력해.' },
+            { inline_data: { mime_type: mimeType, data: base64 } }
+          ]
+        }]
+      };
+
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+      const json = await resp.json();
+      const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '텍스트를 추출하지 못했습니다.';
+      setOcrResult(text);
+    } catch (err) {
+      setOcrResult('오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsOcring(false);
+    }
+  };
+
+  const copyOcrResult = async () => {
+    if (!ocrResult) return;
+    await navigator.clipboard.writeText(ocrResult);
+    setOcrCopied(true);
+    setTimeout(() => setOcrCopied(false), 2000);
   };
 
   const updateBlurRegions = useCallback(() => {
@@ -849,7 +912,7 @@ export default function App() {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <img src={`${import.meta.env.BASE_URL}new-icon.png`} alt="실뷰" className="w-7 h-7 rounded-lg object-cover" />
-            <span className="text-sm font-bold tracking-tight text-gray-900">실뷰</span>
+            <span className="text-sm font-bold tracking-tight text-gray-900">실뷰 <span className="text-violet-500">2</span></span>
           </div>
 
           {/* Nav */}
@@ -956,6 +1019,17 @@ export default function App() {
             <Upload size={16} className="pointer-events-none" />
             <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
           </div>
+          {currentIndex !== null && !isEditing && (
+            <button
+              onClick={extractText}
+              disabled={isOcring}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${isOcring ? 'bg-violet-50 text-violet-400 cursor-wait' : 'bg-violet-50 hover:bg-violet-100 text-violet-600'}`}
+              title="AI 텍스트 추출"
+            >
+              <ScanText size={14} />
+              <span className="hidden sm:inline">{isOcring ? 'AI 분석 중…' : '텍스트 추출'}</span>
+            </button>
+          )}
           {currentIndex !== null && (
             <button
               onClick={() => { const a = document.createElement('a'); a.href = files[currentIndex].url; a.download = files[currentIndex].name; a.click(); }}
@@ -1308,6 +1382,46 @@ export default function App() {
           <span className="text-gray-600 font-bold tracking-widest">SILVIEW V1.4</span>
         </div>
       </footer>
+
+      {/* ── OCR 결과 모달 ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {ocrResult !== null && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setOcrResult(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* 헤더 */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <ScanText size={18} className="text-violet-500" />
+                  <span className="font-bold text-gray-900 text-sm">AI 텍스트 추출 결과</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyOcrResult}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${ocrCopied ? 'bg-green-50 text-green-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+                  >
+                    {ocrCopied ? <><CheckCheck size={13} /> 복사됨</> : <><Copy size={13} /> 복사</>}
+                  </button>
+                  <button onClick={() => setOcrResult(null)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700 transition-colors">
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+              {/* 내용 */}
+              <div className="flex-1 overflow-y-auto p-5">
+                <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans leading-relaxed">{ocrResult}</pre>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Drag Overlay ───────────────────────────────────────── */}
       <AnimatePresence>
