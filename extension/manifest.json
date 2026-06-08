@@ -13,7 +13,7 @@
     "default_path": "panel.html"
   },
   "action": {
-    "default_title": "실뷰 패널 열기",
+    "default_title": "실뷰 - 이미지 뷰어 및 간편 편집",
     "default_icon": {
       "16": "icons/icon.png",
       "48": "icons/icon.png",
