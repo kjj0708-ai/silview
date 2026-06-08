@@ -52,22 +52,30 @@ function ChoshgBanner() {
   const visible = posts.length ? [0, 1].map(i => posts[(idx + i) % posts.length]) : [];
 
   return (
-    <div className="flex-shrink-0 bg-white border-t border-gray-100 flex items-center px-4" style={{ height: 76 }}>
+    <div className="flex-shrink-0 flex items-center px-4 gap-3" style={{ height: 76, background: '#0d1266', borderTop: '2px solid #ffd700' }}>
       {!posts.length ? (
-        <span className="text-[11px] text-gray-400">게시물 로딩 중…</span>
+        <span className="text-[11px]" style={{ color: '#9aa3d4' }}>게시물 로딩 중…</span>
       ) : (
-        <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <span className="text-[11px] font-bold text-indigo-500">초실행관의 업무 치트키</span>
-          {visible.map((p, i) => (
-            <a key={i} href={p.link} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 min-w-0 group" style={{ textDecoration: 'none' }}>
-              <span className="text-[11px] text-gray-400 flex-shrink-0">▸</span>
-              <span className="text-[13px] font-medium text-gray-700 truncate group-hover:text-indigo-500 transition-colors">
-                {p.title}
-              </span>
-            </a>
-          ))}
-        </div>
+        <>
+          <a href="https://choshg.com/" target="_blank" rel="noopener noreferrer"
+            className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl font-bold text-center transition-all hover:opacity-80"
+            style={{ background: '#ffd700', color: '#0d1266', textDecoration: 'none', fontSize: 11, lineHeight: 1.3 }}>
+            <span>초실행관</span>
+            <span>알아보기 ↗</span>
+          </a>
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <span className="text-[11px] font-bold" style={{ color: '#ffd700' }}>초실행관의 업무 치트키</span>
+            {visible.map((p, i) => (
+              <a key={i} href={p.link} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 min-w-0" style={{ textDecoration: 'none' }}>
+                <span className="text-[11px] flex-shrink-0" style={{ color: '#ffd700', opacity: 0.6 }}>▸</span>
+                <span className="text-[13px] font-medium truncate" style={{ color: '#d0d8ff' }}>
+                  {p.title}
+                </span>
+              </a>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -930,11 +938,11 @@ export default function App() {
             href="https://choshg.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden md:flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold text-white whitespace-nowrap transition-all hover:scale-[1.03] hover:shadow-md hover:shadow-blue-500/30"
-            style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%)' }}
+            className="hidden md:flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all hover:scale-[1.03] hover:shadow-md"
+            style={{ background: '#0d1266', color: '#ffd700', border: '1px solid rgba(255,215,0,0.4)', boxShadow: '0 2px 12px rgba(13,18,102,0.3)' }}
           >
             대한민국 모든 공무원을 위한 4가지 해법 : 알아보기
-            <ExternalLink size={11} className="opacity-80" />
+            <ExternalLink size={11} style={{ opacity: 0.8 }} />
           </a>
         </div>
 
@@ -1183,8 +1191,8 @@ export default function App() {
                   <p className="text-sm text-gray-400 leading-relaxed">광고 없는 심플한 이미지 뷰어.<br />도형 및 텍스트 삽입, 블러 처리<br />크기 조절 등 간편 편집 기능</p>
                 </div>
                 <div className="flex flex-col gap-2.5">
-                  <div className="relative overflow-hidden bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 cursor-pointer">
-                    <div className="px-6 py-3 text-white text-sm font-semibold text-center pointer-events-none whitespace-nowrap">
+                  <div className="relative overflow-hidden rounded-xl cursor-pointer transition-all hover:opacity-90" style={{ background: '#ffd700', boxShadow: '0 8px 24px rgba(255,215,0,0.35)' }}>
+                    <div className="px-6 py-3 text-sm font-bold text-center pointer-events-none whitespace-nowrap" style={{ color: '#0d1266' }}>
                       이미지 불러오기
                     </div>
                     <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
