@@ -347,8 +347,8 @@ export default function App() {
         base64 = btoa(binary);
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) { setOcrResult('⚠️ GEMINI_API_KEY가 설정되지 않았습니다.'); return; }
+      // Cloudflare Worker 프록시를 통해 호출 (API 키 보호)
+      const PROXY_URL = 'https://silview-gemini.choshg.workers.dev';
 
       const body = {
         contents: [{
@@ -359,10 +359,11 @@ export default function App() {
         }]
       };
 
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-      );
+      const resp = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
       const json = await resp.json();
       const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '텍스트를 추출하지 못했습니다.';
       setOcrResult(text);
