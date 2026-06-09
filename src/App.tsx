@@ -323,20 +323,71 @@ export default function App() {
   const updateBlurRegions = useCallback(() => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
-    const blurredImg = canvas.getObjects().find(o => (o as any).name === 'blurredImage');
-    if (!blurredImg) return;
+
+    // 기존 블러 패치 제거
+    canvas.getObjects()
+      .filter(o => (o as any).name === 'blurPatch')
+      .forEach(o => canvas.remove(o));
+
     const blurRects = canvas.getObjects().filter(o => (o as any).name === 'blurControl');
-    if (blurRects.length === 0) {
-      blurredImg.set('visible', false);
-      canvas.requestRenderAll();
-      return;
-    }
-    blurredImg.set('visible', true);
-    Promise.all(blurRects.map(r => r.clone())).then(clones => {
-      clones.forEach(c => c.set({ fill: 'black', stroke: null, strokeWidth: 0, opacity: 1 }));
-      blurredImg.clipPath = new fabric.Group(clones, { absolutePositioned: true });
-      canvas.requestRenderAll();
+    if (blurRects.length === 0) { canvas.requestRenderAll(); return; }
+
+    const baseImg = canvas.getObjects().find(o => (o as any).name === 'baseImage') as fabric.Image | undefined;
+    if (!baseImg) return;
+
+    const imgEl = (baseImg as any)._element as HTMLImageElement;
+    if (!imgEl) return;
+
+    const scaleX = baseImg.scaleX || 1;
+    const scaleY = baseImg.scaleY || 1;
+    const iW = (baseImg.width || 0) * scaleX;
+    const iH = (baseImg.height || 0) * scaleY;
+    const iLeft = baseImg.left || 0;
+    const iTop  = baseImg.top  || 0;
+
+    const promises = blurRects.map(async (blurRect) => {
+      const b = blurRect.getBoundingRect();
+      const rl = b.left, rt = b.top, rw = b.width, rh = b.height;
+
+      // 패딩 추가로 블러 경계 번짐 방지
+      const pad = 28;
+      const srcX = Math.max(0, rl - iLeft - pad);
+      const srcY = Math.max(0, rt - iTop  - pad);
+      const srcW = Math.min(iW - srcX, rw + pad * 2);
+      const srcH = Math.min(iH - srcY, rh + pad * 2);
+
+      // 오프스크린 캔버스에 CSS blur로 그림
+      const off = document.createElement('canvas');
+      off.width  = Math.ceil(srcW);
+      off.height = Math.ceil(srcH);
+      const ctx = off.getContext('2d')!;
+      ctx.filter = 'blur(14px)';
+      ctx.drawImage(imgEl,
+        srcX / scaleX, srcY / scaleY, srcW / scaleX, srcH / scaleY,
+        0, 0, srcW, srcH);
+
+      // 실제 rect 크기로 크롭
+      const crop = document.createElement('canvas');
+      crop.width  = Math.ceil(rw);
+      crop.height = Math.ceil(rh);
+      crop.getContext('2d')!.drawImage(off,
+        rl - iLeft - srcX, rt - iTop - srcY, rw, rh,
+        0, 0, rw, rh);
+
+      const patch = await fabric.Image.fromURL(crop.toDataURL());
+      patch.set({ left: rl, top: rt, originX: 'left', originY: 'top',
+                  selectable: false, evented: false });
+      (patch as any).name = 'blurPatch';
+      canvas.add(patch);
+
+      // blurPatch를 baseImage 바로 위(blurControl 아래)로 이동
+      const objs = (canvas as any)._objects as fabric.Object[];
+      const pi = objs.indexOf(patch);
+      const bi = objs.indexOf(baseImg);
+      if (pi > bi + 1) { objs.splice(pi, 1); objs.splice(bi + 1, 0, patch); }
     });
+
+    Promise.all(promises).then(() => canvas.requestRenderAll());
   }, []);
 
   const saveHistory = useCallback(() => {
@@ -584,19 +635,7 @@ export default function App() {
         canvas.centerObject(fImg);
         canvas.zoomToPoint(new fabric.Point(cW / 2, cH / 2), initialZoom);
         
-        fImg.clone().then(blurredImg => {
-          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.5 })];
-          blurredImg.applyFilters();
-          blurredImg.selectable = false;
-          blurredImg.evented = false;
-          (blurredImg as any).name = 'blurredImage';
-          blurredImg.visible = false;
-          blurredImg.clipPath = new fabric.Group([], { absolutePositioned: true });
-          // blurredImage는 baseImage 바로 위에 위치해야 함
-          // (sendBackwards 제거 — 아래로 내리면 baseImage에 가려져 블러가 안 보임)
-          canvas.add(blurredImg);
-          canvas.renderAll();
-        });
+        canvas.renderAll();
       });
 
       const showBlurBorder = (obj: fabric.Object) => {
