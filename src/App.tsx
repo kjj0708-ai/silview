@@ -448,7 +448,14 @@ export default function App() {
       canvas.renderAll();
     };
 
-    const up = () => { drawing = false; };
+    const up = () => {
+      if (!drawing || !selRect) return;
+      drawing = false;
+      const { width = 0, height = 0 } = selRect;
+      if (width < 5 || height < 5) return; // 너무 작으면 무시
+      // 드래그 완료 → 즉시 자르기 적용
+      setTimeout(() => applyCaptureCrop(), 0);
+    };
 
     canvas.on('mouse:down', down);
     canvas.on('mouse:move', move);
@@ -1192,9 +1199,7 @@ export default function App() {
                   <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
                     {isCropping && (
                       <>
-                        <button onClick={applyCaptureCrop} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-600 text-white rounded-lg text-[11px] font-bold hover:bg-orange-700 shadow-sm transition-all">
-                          <Check size={12} /> 적용
-                        </button>
+                        <span className="text-[11px] text-orange-500 font-medium">드래그로 영역 선택 → 자동 적용</span>
                         <button onClick={cancelCrop} className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-[11px] font-medium hover:bg-gray-50 transition-all">
                           <X size={12} /> 취소
                         </button>
