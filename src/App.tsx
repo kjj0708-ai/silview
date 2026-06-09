@@ -601,13 +601,14 @@ export default function App() {
 
       const showBlurBorder = (obj: fabric.Object) => {
         const z = canvas.getZoom();
-        obj.set({ stroke: '#3b82f6', strokeWidth: 2 / z, strokeDashArray: [8 / z, 4 / z], opacity: 1 });
+        // fill 투명 + 점선 테두리만 표시 (블러 효과가 아래로 비침)
+        obj.set({ fill: 'transparent', stroke: '#3b82f6', strokeWidth: 2 / z, strokeDashArray: [8 / z, 4 / z], opacity: 0.5 });
         canvas.requestRenderAll();
       };
       const hideBlurBorders = () => {
         canvas.getObjects()
           .filter(o => (o as any).name === 'blurControl')
-          .forEach(o => o.set({ stroke: null, strokeWidth: 0, opacity: 0 }));
+          .forEach(o => o.set({ stroke: 'transparent', strokeWidth: 0, opacity: 0 }));
         canvas.requestRenderAll();
       };
 
@@ -786,12 +787,12 @@ export default function App() {
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
     else if (type === 'blur') {
       const z = canvas.getZoom();
-      // 선택 상태에서는 파란 점선 테두리 표시, 해제 시 opacity:0으로 숨김
+      // fill 투명 + 점선 테두리(선택 시에만), 해제 시 opacity:0
       obj = new fabric.Rect({
         width: 360, height: 240,
-        fill: 'rgba(59,130,246,0.06)',
+        fill: 'transparent',
         stroke: '#3b82f6', strokeWidth: 2 / z, strokeDashArray: [8 / z, 4 / z],
-        opacity: 1, left: cx - 180, top: cy - 120,
+        opacity: 0.5, left: cx - 180, top: cy - 120,
       });
       (obj as any).name = 'blurControl';
     }
