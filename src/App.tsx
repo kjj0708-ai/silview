@@ -361,7 +361,7 @@ export default function App() {
       off.width  = Math.ceil(srcW);
       off.height = Math.ceil(srcH);
       const ctx = off.getContext('2d')!;
-      ctx.filter = 'blur(14px)';
+      ctx.filter = 'blur(28px)';
       ctx.drawImage(imgEl,
         srcX / scaleX, srcY / scaleY, srcW / scaleX, srcH / scaleY,
         0, 0, srcW, srcH);
