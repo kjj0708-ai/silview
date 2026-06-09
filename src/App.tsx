@@ -512,6 +512,13 @@ export default function App() {
     canvas.remove(selector);
     canvas.clear();
 
+    // 다운로드 즉시 실행 (캔버스 복구 전 dataUrl 사용)
+    const fileName = currentIndex !== null ? files[currentIndex].name : 'crop.png';
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = fileName.replace(/\.[^.]+$/, '') + '_crop.png';
+    a.click();
+
     fabric.Image.fromURL(dataUrl).then(fImg => {
       fImg.selectable = false;
       fImg.evented = false;
