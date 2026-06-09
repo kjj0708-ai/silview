@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings, Printer
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -1101,6 +1101,19 @@ export default function App() {
               className="p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors" title="다운로드"
             >
               <Download size={16} />
+            </button>
+          )}
+          {currentIndex !== null && !isEditing && (
+            <button
+              onClick={() => {
+                const win = window.open('', '_blank');
+                if (!win) return;
+                win.document.write(`<!DOCTYPE html><html><head><title>인쇄</title><style>*{margin:0;padding:0;}body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;}img{max-width:100%;max-height:100vh;object-fit:contain;}@media print{body{margin:0;}img{width:100%;height:auto;}}</style></head><body><img src="${files[currentIndex].url}" onload="window.print();window.close()"/></body></html>`);
+                win.document.close();
+              }}
+              className="p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors" title="프린트"
+            >
+              <Printer size={16} />
             </button>
           )}
           {currentIndex !== null && !isEditing && (
