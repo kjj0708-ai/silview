@@ -102,6 +102,8 @@ export default function App() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isCroppingRef = useRef(false);           // 패닝 핸들러가 참조하는 동기 ref
+  const cropHandlersRef = useRef<any>(null);     // 드래그 핸들러 cleanup용
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +114,7 @@ export default function App() {
   // Fix: keep undoHistory accessible in stale closures inside editor useEffect
   const undoHistoryRef = useRef<string[]>([]);
   useEffect(() => { undoHistoryRef.current = undoHistory; }, [undoHistory]);
+  useEffect(() => { isCroppingRef.current = isCropping; }, [isCropping]);
 
   // 크롬 확장프로그램 연동 (패널 iframe + 새 탭 모두 window.postMessage로 통일)
   useEffect(() => {
@@ -383,45 +386,82 @@ export default function App() {
     updateBlurRegions();
   }, [saveHistory, updateBlurRegions]);
 
+  const cleanupCropHandlers = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !cropHandlersRef.current) return;
+    const { down, move, up } = cropHandlersRef.current;
+    canvas.off('mouse:down', down);
+    canvas.off('mouse:move', move);
+    canvas.off('mouse:up', up);
+    cropHandlersRef.current = null;
+    canvas.defaultCursor = 'grab';
+    canvas.selection = true;
+  };
+
   const startCaptureCrop = () => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
-    const existing = canvas.getObjects().find(o => (o as any).name === 'cropSelector');
-    if (existing) { canvas.setActiveObject(existing); canvas.renderAll(); setIsCropping(true); return; }
+
+    // 기존 선택 영역 제거
+    const prev = canvas.getObjects().find(o => (o as any).name === 'cropSelector');
+    if (prev) canvas.remove(prev);
+
+    canvas.defaultCursor = 'crosshair';
+    canvas.setCursor('crosshair');
+    canvas.selection = false;
+    canvas.discardActiveObject();
+    canvas.renderAll();
 
     const z = canvas.getZoom();
-    const vpt = canvas.viewportTransform!;
-    const selector = new fabric.Rect({
-      fill: 'rgba(59,130,246,0.1)',
-      stroke: '#3b82f6',
-      strokeWidth: 2 / z,
-      strokeDashArray: [6 / z, 4 / z],
-      cornerColor: '#3b82f6',
-      cornerSize: 10 / z,
-      transparentCorners: false,
-      cornerStrokeColor: '#ffffff',
-      cornerStyle: 'rect',
-      hasRotatingPoint: false,
-    });
-    (selector as any).name = 'cropSelector';
+    let drawing = false;
+    let startX = 0, startY = 0;
+    let selRect: fabric.Rect | null = null;
 
-    const baseImg = canvas.getObjects().find(o => (o as any).name === 'baseImage') as fabric.Image;
-    if (baseImg) {
-      const b = baseImg.getBoundingRect();
-      selector.set({ left: b.left + b.width * 0.1, top: b.top + b.height * 0.1, width: b.width * 0.8, height: b.height * 0.8 });
-    } else {
-      const vL = -vpt[4] / z, vT = -vpt[5] / z, vW = canvas.width! / z, vH = canvas.height! / z;
-      selector.set({ left: vL + vW * 0.1, top: vT + vH * 0.1, width: vW * 0.8, height: vH * 0.8 });
-    }
-    canvas.add(selector);
-    canvas.setActiveObject(selector);
-    canvas.renderAll();
+    const down = (opt: any) => {
+      const ptr = canvas.getPointer(opt.e);
+      drawing = true;
+      startX = ptr.x; startY = ptr.y;
+      // 이전 선택 제거
+      const old = canvas.getObjects().find(o => (o as any).name === 'cropSelector');
+      if (old) canvas.remove(old);
+      selRect = new fabric.Rect({
+        left: startX, top: startY, width: 0, height: 0,
+        fill: 'rgba(59,130,246,0.12)',
+        stroke: '#3b82f6', strokeWidth: 2 / z,
+        strokeDashArray: [6 / z, 4 / z],
+        selectable: false, evented: false,
+      });
+      (selRect as any).name = 'cropSelector';
+      canvas.add(selRect);
+      canvas.renderAll();
+    };
+
+    const move = (opt: any) => {
+      if (!drawing || !selRect) return;
+      const ptr = canvas.getPointer(opt.e);
+      selRect.set({
+        left:   Math.min(ptr.x, startX),
+        top:    Math.min(ptr.y, startY),
+        width:  Math.abs(ptr.x - startX),
+        height: Math.abs(ptr.y - startY),
+      });
+      canvas.renderAll();
+    };
+
+    const up = () => { drawing = false; };
+
+    canvas.on('mouse:down', down);
+    canvas.on('mouse:move', move);
+    canvas.on('mouse:up',   up);
+    cropHandlersRef.current = { down, move, up };
+
     setIsCropping(true);
   };
 
   const applyCaptureCrop = () => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
+    cleanupCropHandlers();
     const selector = canvas.getObjects().find(o => (o as any).name === 'cropSelector');
     if (!selector) { setIsCropping(false); return; }
 
@@ -484,6 +524,7 @@ export default function App() {
 
   const cancelCrop = () => {
     if (!fabricCanvasRef.current) return;
+    cleanupCropHandlers();
     const sel = fabricCanvasRef.current.getObjects().find(o => (o as any).name === 'cropSelector');
     if (sel) { fabricCanvasRef.current.remove(sel); fabricCanvasRef.current.renderAll(); }
     setIsCropping(false);
@@ -572,6 +613,8 @@ export default function App() {
         const isTouch2 = e.touches && e.touches.length === 2;
         const isLeftMouse = !e.touches && (e.button === 0 || e.button === undefined);
 
+        // 자르기 모드에서는 패닝 비활성화
+        if (isCroppingRef.current) return;
         // 빈 배경/이미지를 그냥 드래그하면 손모양으로 이동 (객체 위는 객체 이동)
         if ((isTouch1 && isBg) || isTouch2 || (isLeftMouse && isBg) || e.altKey || e.button === 1) {
           isPanning = true;
