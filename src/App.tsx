@@ -1208,8 +1208,32 @@ export default function App() {
             /* ── Image Viewer ────────────────────────────── */
             <div
               ref={containerRef}
-              className="flex-1 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing touch-none p-4"
-              style={{ background: 'radial-gradient(ellipse at 50% 40%, #252535 0%, #15151f 100%)' }}
+              className="flex-1 relative flex items-center justify-center overflow-hidden touch-none p-4"
+              style={{ background: 'radial-gradient(ellipse at 50% 40%, #252535 0%, #15151f 100%)', cursor: 'grab' }}
+              onPointerDown={(e) => {
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                (e.currentTarget as any)._panStart = { x: e.clientX, y: e.clientY };
+                (e.currentTarget as any)._panning = true;
+                (e.currentTarget as HTMLElement).style.cursor = 'grabbing';
+              }}
+              onPointerMove={(e) => {
+                const el = e.currentTarget as any;
+                if (!el._panning || !el._panStart) return;
+                const dx = e.clientX - el._panStart.x;
+                const dy = e.clientY - el._panStart.y;
+                el._panStart = { x: e.clientX, y: e.clientY };
+                setPosition(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+              }}
+              onPointerUp={(e) => {
+                const el = e.currentTarget as any;
+                el._panning = false;
+                (e.currentTarget as HTMLElement).style.cursor = 'grab';
+              }}
+              onPointerLeave={(e) => {
+                const el = e.currentTarget as any;
+                el._panning = false;
+                (e.currentTarget as HTMLElement).style.cursor = 'grab';
+              }}
               onTouchStart={(e) => {
                 if (e.touches.length === 2) {
                   const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -1235,28 +1259,25 @@ export default function App() {
                 style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
               />
 
-              {/* 드래그 레이어: 패닝 전용. 진입 애니메이션 없이 항상 표시 (Framer animate 미사용으로 stall 방지) */}
-              <motion.div
+              {/* 드래그 레이어: 네이티브 포인터 이벤트로 패닝 (Framer drag 제거 — 확대 시 범위 제한 문제 해결) */}
+              <div
                 key={files[currentIndex].id}
-                className="relative flex items-center justify-center max-w-full max-h-full"
-                drag
-                dragMomentum={false}
-                style={{ x: position.x, y: position.y }}
-                onDragEnd={(_, info) => setPosition(prev => ({ x: prev.x + info.offset.x, y: prev.y + info.offset.y }))}
+                className="relative flex items-center justify-center"
+                style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
               >
-                {/* 변환 레이어: 줌/회전/반전을 순수 CSS transform으로 (Framer와 독립) */}
                 <img
                   src={files[currentIndex].url}
                   alt={files[currentIndex].name}
-                  className="max-w-full max-h-full object-contain pointer-events-none select-none"
+                  className="max-w-full max-h-full object-contain select-none"
                   style={{
                     filter: 'drop-shadow(0 20px 60px rgba(0,0,0,0.6))',
                     transform: `scale(${zoom}) rotate(${rotation}deg) scaleX(${flip ? -1 : 1})`,
                     transition: 'transform 0.18s ease-out',
+                    pointerEvents: 'none',
                   }}
                   draggable={false}
                 />
-              </motion.div>
+              </div>
 
               {/* Navigation */}
               {files.length > 1 && (
@@ -1270,10 +1291,6 @@ export default function App() {
                 </>
               )}
 
-              {/* Image info pill */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-white/50 text-[11px] font-medium pointer-events-none whitespace-nowrap">
-                {files[currentIndex].name}&nbsp;&nbsp;·&nbsp;&nbsp;{currentIndex + 1} / {files.length}
-              </div>
             </div>
           )}
 
@@ -1287,24 +1304,24 @@ export default function App() {
       <footer className="h-7 bg-[#111827] border-t border-black/20 flex items-center justify-between px-4 text-[10px] text-gray-500 z-50 flex-shrink-0 font-mono">
         <div className="flex items-center gap-3">
           <span>{files.length} ITEMS</span>
-          {currentIndex !== null && (
-            <>
-              <span className="text-gray-700">|</span>
-              <span className="text-gray-400 font-bold truncate max-w-[200px]">{files[currentIndex].name}</span>
-            </>
-          )}
         </div>
+        {/* 파일명 중앙 표시 */}
+        {currentIndex !== null && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] font-mono">
+            <span className="text-gray-400 font-bold truncate max-w-[280px]">{files[currentIndex].name}</span>
+            <span className="text-gray-700">·</span>
+            <span className="text-blue-400 font-bold">{currentIndex + 1} / {files.length}</span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           {currentIndex !== null && (
             <>
-              <span className="text-blue-500 font-bold">{currentIndex + 1} / {files.length}</span>
-              <span className="text-gray-700">|</span>
               <span>{formatSize(files[currentIndex].size)}</span>
               <span className="text-gray-700">|</span>
               <span>{Math.round(zoom * 100)}%</span>
+              <span className="text-gray-700">|</span>
             </>
           )}
-          <span className="text-gray-700">|</span>
           <span className="text-gray-600 font-bold tracking-widest">SILVIEW V1.4</span>
         </div>
       </footer>
