@@ -585,23 +585,43 @@ export default function App() {
         canvas.zoomToPoint(new fabric.Point(cW / 2, cH / 2), initialZoom);
         
         fImg.clone().then(blurredImg => {
-          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.30 })];
+          blurredImg.filters = [new fabric.filters.Blur({ blur: 0.5 })];
           blurredImg.applyFilters();
           blurredImg.selectable = false;
           blurredImg.evented = false;
           (blurredImg as any).name = 'blurredImage';
           blurredImg.visible = false;
           blurredImg.clipPath = new fabric.Group([], { absolutePositioned: true });
+          // blurredImage는 baseImage 바로 위에 위치해야 함
+          // (sendBackwards 제거 — 아래로 내리면 baseImage에 가려져 블러가 안 보임)
           canvas.add(blurredImg);
-          canvas.sendBackwards(blurredImg);
-          canvas.sendBackwards(fImg);
           canvas.renderAll();
         });
       });
 
-      canvas.on('selection:created', e => setSelectedObject(e.selected?.[0] || null));
-      canvas.on('selection:updated', e => setSelectedObject(e.selected?.[0] || null));
-      canvas.on('selection:cleared', () => setSelectedObject(null));
+      const showBlurBorder = (obj: fabric.Object) => {
+        const z = canvas.getZoom();
+        obj.set({ stroke: '#3b82f6', strokeWidth: 2 / z, strokeDashArray: [8 / z, 4 / z], opacity: 1 });
+        canvas.requestRenderAll();
+      };
+      const hideBlurBorders = () => {
+        canvas.getObjects()
+          .filter(o => (o as any).name === 'blurControl')
+          .forEach(o => o.set({ stroke: null, strokeWidth: 0, opacity: 0 }));
+        canvas.requestRenderAll();
+      };
+
+      canvas.on('selection:created', e => {
+        const obj = e.selected?.[0];
+        setSelectedObject(obj || null);
+        if ((obj as any)?.name === 'blurControl') showBlurBorder(obj!);
+      });
+      canvas.on('selection:updated', e => {
+        const obj = e.selected?.[0];
+        setSelectedObject(obj || null);
+        if ((obj as any)?.name === 'blurControl') showBlurBorder(obj!);
+      });
+      canvas.on('selection:cleared', () => { setSelectedObject(null); hideBlurBorders(); });
       canvas.on('object:moving', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
       canvas.on('object:scaling', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
       canvas.on('object:rotating', (e) => { if ((e.target as any)?.name === 'blurControl') updateBlurRegions(); });
@@ -765,22 +785,27 @@ export default function App() {
     } else if (type === 'text')
       obj = new fabric.IText('텍스트', { fontSize: 84, fill: brushColor, fontFamily: 'Inter, sans-serif', left: cx, top: cy });
     else if (type === 'blur') {
-      // opacity:0 → Fabric.js가 globalAlpha=0으로 렌더 → 픽셀 단위로 완전 투명
-      // (antialiasing·캐시 아티팩트 포함 100% 제거, 선택 핸들은 별도 렌더라 유지됨)
-      obj = new fabric.Rect({ width: 360, height: 240, fill: 'black', stroke: null, strokeWidth: 0, opacity: 0, left: cx - 180, top: cy - 120 });
+      const z = canvas.getZoom();
+      // 선택 상태에서는 파란 점선 테두리 표시, 해제 시 opacity:0으로 숨김
+      obj = new fabric.Rect({
+        width: 360, height: 240,
+        fill: 'rgba(59,130,246,0.06)',
+        stroke: '#3b82f6', strokeWidth: 2 / z, strokeDashArray: [8 / z, 4 / z],
+        opacity: 1, left: cx - 180, top: cy - 120,
+      });
       (obj as any).name = 'blurControl';
     }
 
     if (obj) {
       const isBlur = (obj as any).name === 'blurControl';
       obj.set({
-        cornerSize: isBlur ? 8 : 4,
-        cornerColor: isBlur ? 'rgba(59,130,246,0.8)' : '#3b82f6',
+        cornerSize: isBlur ? 10 : 4,
+        cornerColor: '#3b82f6',
         cornerStrokeColor: '#ffffff',
-        transparentCorners: isBlur ? true : false,
-        borderColor: isBlur ? 'rgba(0,0,0,0)' : '#3b82f6',
+        transparentCorners: false,
+        borderColor: isBlur ? '#3b82f6' : '#3b82f6',
         borderScaleFactor: 1.5,
-        hasBorders: !isBlur,
+        hasBorders: true,
       });
       canvas.add(obj);
       canvas.setActiveObject(obj);
