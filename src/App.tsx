@@ -356,15 +356,25 @@ export default function App() {
       const srcW = Math.min(iW - srcX, rw + pad * 2);
       const srcH = Math.min(iH - srcY, rh + pad * 2);
 
-      // 오프스크린 캔버스에 CSS blur로 그림
+      // 픽셀화(모자이크): 작게 축소 후 nearest-neighbor로 확대 → 큰 사각형 블록
+      const BLOCK = 22; // 모자이크 블록 크기 (픽셀 단위)
+      const smallW = Math.max(1, Math.round(srcW / BLOCK));
+      const smallH = Math.max(1, Math.round(srcH / BLOCK));
+
+      // 1단계: 원본 영역을 작은 캔버스에 그림 (평균 색상)
+      const tmp = document.createElement('canvas');
+      tmp.width = smallW; tmp.height = smallH;
+      tmp.getContext('2d')!.drawImage(imgEl,
+        srcX / scaleX, srcY / scaleY, srcW / scaleX, srcH / scaleY,
+        0, 0, smallW, smallH);
+
+      // 2단계: 스무딩 OFF로 확대 → 큰 블록 픽셀화
       const off = document.createElement('canvas');
       off.width  = Math.ceil(srcW);
       off.height = Math.ceil(srcH);
       const ctx = off.getContext('2d')!;
-      ctx.filter = 'blur(28px)';
-      ctx.drawImage(imgEl,
-        srcX / scaleX, srcY / scaleY, srcW / scaleX, srcH / scaleY,
-        0, 0, srcW, srcH);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmp, 0, 0, smallW, smallH, 0, 0, srcW, srcH);
 
       // 실제 rect 크기로 크롭
       const crop = document.createElement('canvas');
