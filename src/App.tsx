@@ -356,19 +356,26 @@ export default function App() {
       const srcW = Math.min(iW - srcX, rw + pad * 2);
       const srcH = Math.min(iH - srcY, rh + pad * 2);
 
-      // 픽셀화(모자이크): 작게 축소 후 nearest-neighbor로 확대 → 큰 사각형 블록
-      const BLOCK = 22; // 모자이크 블록 크기 (픽셀 단위)
+      // 픽셀화(모자이크): 작게 축소 후 nearest-neighbor로 확대
+      const BLOCK = 2; // 모자이크 블록 크기 (px)
+
+      // 소스 좌표 범위 클램핑 (흰 박스 방지)
+      const natW = imgEl.naturalWidth  || imgEl.width;
+      const natH = imgEl.naturalHeight || imgEl.height;
+      const sx = Math.max(0, Math.min(srcX / scaleX, natW - 1));
+      const sy = Math.max(0, Math.min(srcY / scaleY, natH - 1));
+      const sw = Math.min(srcW / scaleX, natW - sx);
+      const sh = Math.min(srcH / scaleY, natH - sy);
+
       const smallW = Math.max(1, Math.round(srcW / BLOCK));
       const smallH = Math.max(1, Math.round(srcH / BLOCK));
 
-      // 1단계: 원본 영역을 작은 캔버스에 그림 (평균 색상)
+      // 1단계: 원본 영역을 작은 캔버스에 그림
       const tmp = document.createElement('canvas');
       tmp.width = smallW; tmp.height = smallH;
-      tmp.getContext('2d')!.drawImage(imgEl,
-        srcX / scaleX, srcY / scaleY, srcW / scaleX, srcH / scaleY,
-        0, 0, smallW, smallH);
+      tmp.getContext('2d')!.drawImage(imgEl, sx, sy, sw, sh, 0, 0, smallW, smallH);
 
-      // 2단계: 스무딩 OFF로 확대 → 큰 블록 픽셀화
+      // 2단계: 스무딩 OFF로 확대 → 픽셀화
       const off = document.createElement('canvas');
       off.width  = Math.ceil(srcW);
       off.height = Math.ceil(srcH);
