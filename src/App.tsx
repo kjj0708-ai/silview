@@ -357,7 +357,7 @@ export default function App() {
       const srcH = Math.min(iH - srcY, rh + pad * 2);
 
       // 픽셀화(모자이크): 작게 축소 후 nearest-neighbor로 확대
-      const BLOCK = 2; // 모자이크 블록 크기 (px)
+      const BLOCK = 5; // 모자이크 블록 크기 (px)
 
       // 소스 좌표 범위 클램핑 (흰 박스 방지)
       const natW = imgEl.naturalWidth  || imgEl.width;
