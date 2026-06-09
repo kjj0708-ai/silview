@@ -1103,7 +1103,7 @@ export default function App() {
               <Download size={16} />
             </button>
           )}
-          {currentIndex !== null && !isEditing && (
+          {currentIndex !== null && !isEditing && !isMobile && (
             <button
               onClick={() => {
                 const win = window.open('', '_blank');
