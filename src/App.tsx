@@ -309,7 +309,7 @@ export default function App() {
     }
 
     try {
-      const directory = await picker();
+      const directory = await picker.call(window);
       const imageFiles: File[] = [];
 
       const collectFiles = async (handle: any): Promise<void> => {
@@ -326,7 +326,7 @@ export default function App() {
       await loadImageFiles(imageFiles);
     } catch (error) {
       if ((error as DOMException)?.name !== 'AbortError') {
-        folderInputRef.current?.click();
+        console.error('폴더를 불러오지 못했습니다.', error);
       }
     }
   }, [loadImageFiles]);
@@ -341,17 +341,17 @@ export default function App() {
     setZoom(1); setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
   };
 
-  const nextImage = () => {
-    if (currentIndex === null || files.length <= 1) return;
-    setCurrentIndex((currentIndex + 1) % files.length);
+  const moveImage = useCallback((direction: -1 | 1) => {
+    if (files.length <= 1) return;
+    setCurrentIndex(prev => {
+      if (prev === null) return 0;
+      return (prev + direction + files.length) % files.length;
+    });
     resetViewer();
-  };
+  }, [files.length]);
 
-  const prevImage = () => {
-    if (currentIndex === null || files.length <= 1) return;
-    setCurrentIndex((currentIndex - 1 + files.length) % files.length);
-    resetViewer();
-  };
+  const nextImage = useCallback(() => moveImage(1), [moveImage]);
+  const prevImage = useCallback(() => moveImage(-1), [moveImage]);
 
   const removeFile = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1025,12 +1025,18 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (currentIndex === null || isEditing) return;
-      if (e.key === 'ArrowRight') nextImage();
-      if (e.key === 'ArrowLeft') prevImage();
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextImage();
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevImage();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentIndex, files.length, isEditing]);
+  }, [currentIndex, isEditing, nextImage, prevImage]);
 
   // ─── Editor toolbar shape buttons config ────────────────────────
   const shapeButtons = [
@@ -1527,10 +1533,22 @@ export default function App() {
               {/* Navigation */}
               {files.length > 1 && (
                 <>
-                  <button onClick={prevImage} className="absolute left-5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-20 shadow-lg">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                    aria-label="이전 이미지"
+                    className="absolute left-5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-20 shadow-lg"
+                  >
                     <ChevronLeft size={18} />
                   </button>
-                  <button onClick={nextImage} className="absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-20 shadow-lg">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                    aria-label="다음 이미지"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/15 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-20 shadow-lg"
+                  >
                     <ChevronRight size={18} />
                   </button>
                 </>
