@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, X, Image as LucideImage,
   Upload, Trash2, Download, FlipHorizontal,
   Edit3, Square, Circle, Type, Minus, Crop, Save,
-  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings, Printer
+  Check, Undo, Monitor, Grid, FolderOpen, MoveRight, ExternalLink, Droplet, Settings, Printer,
+  ArrowDownAZ, ArrowUpAZ
 } from 'lucide-react';
 
 // Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
@@ -81,6 +82,7 @@ export default function App() {
   const [flip, setFlip] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [showGallery, setShowGallery] = useState(true);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isEditing, setIsEditing] = useState(false);
@@ -243,10 +245,13 @@ export default function App() {
     }
   }, [files.length, currentIndex]);
 
-  const handleFiles = useCallback(async (selectedFiles: FileList | null) => {
-    if (!selectedFiles) return;
-    const filesArray = Array.from(selectedFiles)
-      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '');
+  const loadImageFiles = useCallback(async (inputFiles: File[]) => {
+    const filesArray = inputFiles
+      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '')
+      .sort((a, b) => {
+        const result = a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? result : -result;
+      });
     if (!filesArray.length) return;
 
     const newFiles: ViewerFile[] = await Promise.all(
@@ -263,10 +268,68 @@ export default function App() {
         });
       })
     );
-    
-    setFiles(prev => [...prev, ...newFiles]);
+
+    setFiles(prev => {
+      setCurrentIndex(prev.length);
+      return [...prev, ...newFiles];
+    });
+    resetViewer();
     setShowFileMenu(false);
-  }, []);
+  }, [sortOrder]);
+
+  const changeSortOrder = useCallback((order: 'asc' | 'desc') => {
+    const activeId = currentIndex === null ? null : files[currentIndex]?.id;
+    setSortOrder(order);
+    setFiles(prev => {
+      const sorted = [...prev].sort((a, b) => {
+        const result = a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+        return order === 'asc' ? result : -result;
+      });
+      if (activeId) {
+        const nextIndex = sorted.findIndex(file => file.id === activeId);
+        if (nextIndex >= 0) setCurrentIndex(nextIndex);
+      }
+      return sorted;
+    });
+  }, [currentIndex, files]);
+
+  const handleFiles = useCallback(async (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    await loadImageFiles(Array.from(selectedFiles));
+  }, [loadImageFiles]);
+
+  const openFolder = useCallback(async () => {
+    const picker = (window as typeof window & {
+      showDirectoryPicker?: () => Promise<any>;
+    }).showDirectoryPicker;
+
+    if (!picker) {
+      folderInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const directory = await picker();
+      const imageFiles: File[] = [];
+
+      const collectFiles = async (handle: any): Promise<void> => {
+        for await (const entry of handle.values()) {
+          if (entry.kind === 'file') {
+            imageFiles.push(await entry.getFile());
+          } else if (entry.kind === 'directory') {
+            await collectFiles(entry);
+          }
+        }
+      };
+
+      await collectFiles(directory);
+      await loadImageFiles(imageFiles);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'AbortError') {
+        folderInputRef.current?.click();
+      }
+    }
+  }, [loadImageFiles]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1010,7 +1073,7 @@ export default function App() {
                   >
                     {[
                       { isFile: true, Icon: Upload, label: '이미지 열기' },
-                      { isFile: false, onClick: () => folderInputRef.current?.click(), Icon: FolderOpen, label: '폴더 열기' },
+                      { isFile: false, onClick: openFolder, Icon: FolderOpen, label: '폴더 열기' },
                     ].map(({ isFile, onClick, Icon, label }) => (
                       isFile ? (
                         <div key={label} className="relative overflow-hidden w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700 cursor-pointer">
@@ -1137,6 +1200,22 @@ export default function App() {
             transition={{ duration: 0.18, ease: 'easeInOut' }}
             className="bg-[#F5F5F7] border-b border-gray-200 flex items-center gap-2 px-3 overflow-x-auto flex-shrink-0"
           >
+            <div className="flex flex-col gap-1 flex-shrink-0 border-r border-gray-200 pr-2">
+              <button
+                onClick={() => changeSortOrder('asc')}
+                className={`p-1.5 rounded-md transition-colors ${sortOrder === 'asc' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-gray-200'}`}
+                title="파일명 오름차순"
+              >
+                <ArrowDownAZ size={14} />
+              </button>
+              <button
+                onClick={() => changeSortOrder('desc')}
+                className={`p-1.5 rounded-md transition-colors ${sortOrder === 'desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-gray-200'}`}
+                title="파일명 내림차순"
+              >
+                <ArrowUpAZ size={14} />
+              </button>
+            </div>
             {files.length === 0 ? (
               <div className="flex items-center gap-2 text-gray-300">
                 <LucideImage size={14} /><span className="text-[10px] whitespace-nowrap">이미지 없음</span>
@@ -1166,9 +1245,25 @@ export default function App() {
                 <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">
                   Library <span className="text-gray-300 normal-case font-normal">({files.length})</span>
                 </span>
-                <button onClick={() => folderInputRef.current?.click()} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
-                  <FolderOpen size={12} />
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => changeSortOrder('asc')}
+                    className={`p-1 rounded-md transition-colors ${sortOrder === 'asc' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-gray-200'}`}
+                    title="파일명 오름차순"
+                  >
+                    <ArrowDownAZ size={12} />
+                  </button>
+                  <button
+                    onClick={() => changeSortOrder('desc')}
+                    className={`p-1 rounded-md transition-colors ${sortOrder === 'desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:bg-gray-200'}`}
+                    title="파일명 내림차순"
+                  >
+                    <ArrowUpAZ size={12} />
+                  </button>
+                  <button onClick={openFolder} className="p-1 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors" title="폴더 열기">
+                    <FolderOpen size={12} />
+                  </button>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
                 {files.length === 0 ? (
@@ -1339,7 +1434,7 @@ export default function App() {
                     </div>
                     <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
                   </div>
-                  <button onClick={() => folderInputRef.current?.click()} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
+                  <button onClick={openFolder} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
                     폴더 열기
                   </button>
                 </div>
