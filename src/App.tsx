@@ -19,7 +19,7 @@ interface ViewerFile {
   size: number;
 }
 
-const DEFAULT_VIEWER_ZOOM = 0.85;
+const DEFAULT_VIEWER_ZOOM = 1;
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -300,38 +300,10 @@ export default function App() {
     await loadImageFiles(Array.from(selectedFiles));
   }, [loadImageFiles]);
 
-  const openFolder = useCallback(async () => {
-    const picker = (window as typeof window & {
-      showDirectoryPicker?: () => Promise<any>;
-    }).showDirectoryPicker;
-
-    if (!picker) {
-      folderInputRef.current?.click();
-      return;
-    }
-
-    try {
-      const directory = await picker.call(window);
-      const imageFiles: File[] = [];
-
-      const collectFiles = async (handle: any): Promise<void> => {
-        for await (const entry of handle.values()) {
-          if (entry.kind === 'file') {
-            imageFiles.push(await entry.getFile());
-          } else if (entry.kind === 'directory') {
-            await collectFiles(entry);
-          }
-        }
-      };
-
-      await collectFiles(directory);
-      await loadImageFiles(imageFiles);
-    } catch (error) {
-      if ((error as DOMException)?.name !== 'AbortError') {
-        console.error('폴더를 불러오지 못했습니다.', error);
-      }
-    }
-  }, [loadImageFiles]);
+  const openFolder = useCallback(() => {
+    // 일반 폴더 입력을 사용해 별도의 파일 시스템 접근 권한 확인 없이 바로 읽습니다.
+    folderInputRef.current?.click();
+  }, []);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1564,32 +1536,6 @@ export default function App() {
 
       {/* ── 초실행관 배너 (사진 안 열렸을 때만 표시) ──────────────── */}
       {currentIndex === null && <ChoshgBanner />}
-
-      {/* ── Status Bar ─────────────────────────────────────────── */}
-      <footer className="h-7 bg-[#111827] border-t border-black/20 flex items-center justify-between px-4 text-[10px] text-gray-500 z-50 flex-shrink-0 font-mono">
-        <div className="flex items-center gap-3">
-          <span>{files.length} ITEMS</span>
-        </div>
-        {/* 파일명 중앙 표시 */}
-        {currentIndex !== null && (
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 text-[10px] font-mono">
-            <span className="text-gray-400 font-bold truncate max-w-[280px]">{files[currentIndex].name}</span>
-            <span className="text-gray-700">·</span>
-            <span className="text-blue-400 font-bold">{currentIndex + 1} / {files.length}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-3">
-          {currentIndex !== null && (
-            <>
-              <span>{formatSize(files[currentIndex].size)}</span>
-              <span className="text-gray-700">|</span>
-              <span>{Math.round(zoom * 100)}%</span>
-              <span className="text-gray-700">|</span>
-            </>
-          )}
-          <span className="text-gray-600 font-bold tracking-widest">SILVIEW V1.4</span>
-        </div>
-      </footer>
 
       {/* ── Drag Overlay ───────────────────────────────────────── */}
       <AnimatePresence>
