@@ -19,6 +19,8 @@ interface ViewerFile {
   size: number;
 }
 
+const DEFAULT_VIEWER_ZOOM = 0.85;
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -77,7 +79,7 @@ function ChoshgBanner() {
 export default function App() {
   const [files, setFiles] = useState<ViewerFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(DEFAULT_VIEWER_ZOOM);
   const [rotation, setRotation] = useState(0);
   const [flip, setFlip] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -338,7 +340,7 @@ export default function App() {
   };
 
   const resetViewer = () => {
-    setZoom(1); setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
+    setZoom(DEFAULT_VIEWER_ZOOM); setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
   };
 
   const moveImage = useCallback((direction: -1 | 1) => {
