@@ -300,10 +300,42 @@ export default function App() {
     await loadImageFiles(Array.from(selectedFiles));
   }, [loadImageFiles]);
 
-  const openFolder = useCallback(() => {
-    // 일반 폴더 입력을 사용해 별도의 파일 시스템 접근 권한 확인 없이 바로 읽습니다.
-    folderInputRef.current?.click();
-  }, []);
+  const openFolder = useCallback(async () => {
+    const picker = (window as typeof window & {
+      showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
+    }).showDirectoryPicker;
+
+    if (!picker) {
+      folderInputRef.current?.click();
+      return;
+    }
+
+    try {
+      // 업로드가 아닌 읽기 전용 접근을 사용해 Chrome의 대량 업로드 확인창을 피합니다.
+      const directory = await picker.call(window, { mode: 'read' });
+      const imageFiles: File[] = [];
+
+      const collectFiles = async (handle: any): Promise<void> => {
+        for await (const entry of handle.values()) {
+          if (entry.kind === 'file') {
+            const file = await entry.getFile();
+            if (file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(file.name)) {
+              imageFiles.push(file);
+            }
+          } else if (entry.kind === 'directory') {
+            await collectFiles(entry);
+          }
+        }
+      };
+
+      await collectFiles(directory);
+      await loadImageFiles(imageFiles);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'AbortError') {
+        console.error('폴더를 불러오지 못했습니다.', error);
+      }
+    }
+  }, [loadImageFiles]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
