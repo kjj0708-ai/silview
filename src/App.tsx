@@ -304,8 +304,34 @@ export default function App() {
     const picker = (window as typeof window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
     }).showDirectoryPicker;
+    const filePicker = (window as typeof window & {
+      showOpenFilePicker?: (options?: any) => Promise<any[]>;
+    }).showOpenFilePicker;
 
     if (!picker) {
+      if (filePicker) {
+        try {
+          // Brave처럼 폴더 API가 없는 브라우저에서는 읽기 전용 다중 파일 선택을 사용합니다.
+          const handles = await filePicker.call(window, {
+            id: 'silview-images',
+            multiple: true,
+            types: [{
+              description: '이미지 파일',
+              accept: {
+                'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.heic', '.heif', '.bmp', '.tif', '.tiff'],
+              },
+            }],
+          });
+          const imageFiles = await Promise.all(handles.map(handle => handle.getFile()));
+          await loadImageFiles(imageFiles);
+        } catch (error) {
+          if ((error as DOMException)?.name !== 'AbortError') {
+            console.error('이미지를 불러오지 못했습니다.', error);
+          }
+        }
+        return;
+      }
+
       folderInputRef.current?.click();
       return;
     }
