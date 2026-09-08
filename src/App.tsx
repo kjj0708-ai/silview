@@ -1172,7 +1172,7 @@ export default function App() {
             className="hidden md:flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all hover:scale-[1.03] hover:shadow-md"
             style={{ background: '#0d1266', color: '#ffd700', border: '1px solid rgba(255,215,0,0.4)', boxShadow: '0 2px 12px rgba(13,18,102,0.3)' }}
           >
-            대한민국 모든 공무원을 위한 4가지 해법 : 알아보기
+            어려운 AI를 공무원의 언어로 바꾸는 사람 - 초실행관
             <ExternalLink size={11} style={{ opacity: 0.8 }} />
           </a>
         </div>
