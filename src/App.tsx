@@ -108,6 +108,7 @@ export default function App() {
   const cropHandlersRef = useRef<any>(null);     // 드래그 핸들러 cleanup용
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   // 생성한 blob URL 추적 (언마운트 시 정리)
   const blobUrlsRef = useRef<Set<string>>(new Set());
   // Fix: store cleanup so we can remove keydown listener when editor closes
@@ -301,37 +302,10 @@ export default function App() {
     const picker = (window as typeof window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
     }).showDirectoryPicker;
-    const filePicker = (window as typeof window & {
-      showOpenFilePicker?: (options?: any) => Promise<any[]>;
-    }).showOpenFilePicker;
 
     if (!picker) {
-      if (filePicker) {
-        try {
-          // Brave처럼 폴더 API가 없는 브라우저에서는 읽기 전용 다중 파일 선택을 사용합니다.
-          const handles = await filePicker.call(window, {
-            id: 'silview-images',
-            multiple: true,
-            types: [{
-              description: '이미지 파일',
-              accept: {
-                'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.heic', '.heif', '.bmp', '.tif', '.tiff'],
-              },
-            }],
-          });
-          const imageFiles = await Promise.all(handles.map(handle => handle.getFile()));
-          await loadImageFiles(imageFiles);
-        } catch (error) {
-          if ((error as DOMException)?.name !== 'AbortError') {
-            console.error('이미지를 불러오지 못했습니다.', error);
-          }
-        }
-        return;
-      }
-
-      // 폴더 API를 지원하지 않는 브라우저는 일반 다중 선택으로 엽니다.
-      // webkitdirectory는 브라우저의 대량 업로드 확인창을 강제로 띄우므로 사용하지 않습니다.
-      fileInputRef.current?.click();
+      // 폴더 API를 지원하지 않는 브라우저는 폴더 입력으로 엽니다.
+      folderInputRef.current?.click();
       return;
     }
 
@@ -1225,6 +1199,7 @@ export default function App() {
             </button>
           )}
           <input ref={fileInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
 
