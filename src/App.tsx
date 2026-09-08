@@ -10,8 +10,6 @@ import {
   ArrowDownAZ, ArrowUpAZ
 } from 'lucide-react';
 
-// Fix: webkitdirectory is not in standard React types — handled via spread cast at usage site
-
 interface ViewerFile {
   id: string;
   url: string;
@@ -110,7 +108,6 @@ export default function App() {
   const cropHandlersRef = useRef<any>(null);     // 드래그 핸들러 cleanup용
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
   // 생성한 blob URL 추적 (언마운트 시 정리)
   const blobUrlsRef = useRef<Set<string>>(new Set());
   // Fix: store cleanup so we can remove keydown listener when editor closes
@@ -332,7 +329,9 @@ export default function App() {
         return;
       }
 
-      folderInputRef.current?.click();
+      // 폴더 API를 지원하지 않는 브라우저는 일반 다중 선택으로 엽니다.
+      // webkitdirectory는 브라우저의 대량 업로드 확인창을 강제로 띄우므로 사용하지 않습니다.
+      fileInputRef.current?.click();
       return;
     }
 
@@ -1226,7 +1225,6 @@ export default function App() {
             </button>
           )}
           <input ref={fileInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
-          <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
 
