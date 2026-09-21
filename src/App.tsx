@@ -460,8 +460,9 @@ export default function App() {
     handleFiles(e.dataTransfer.files);
   };
 
-  const resetViewer = () => {
-    setZoom(DEFAULT_VIEWER_ZOOM); setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
+  const resetViewer = (preserveZoom = false) => {
+    if (!preserveZoom) setZoom(DEFAULT_VIEWER_ZOOM);
+    setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
   };
 
   const moveImage = useCallback((direction: -1 | 1) => {
@@ -470,7 +471,8 @@ export default function App() {
       if (prev === null) return 0;
       return (prev + direction + files.length) % files.length;
     });
-    resetViewer();
+    // 다음/이전 이미지에서도 사용자가 조정한 배율은 유지합니다.
+    resetViewer(true);
   }, [files.length]);
 
   const nextImage = useCallback(() => moveImage(1), [moveImage]);
@@ -1357,7 +1359,7 @@ export default function App() {
                 <LucideImage size={14} /><span className="text-[10px] whitespace-nowrap">이미지 없음</span>
               </div>
             ) : files.map((file, idx) => (
-              <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+              <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(true); }}
                 className={`flex-shrink-0 w-[68px] h-[68px] rounded-xl overflow-hidden cursor-pointer transition-all ${currentIndex === idx ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F5F7] scale-105' : 'opacity-55 hover:opacity-90'}`}
               >
                 <img src={file.url} alt="" className="w-full h-full object-cover" draggable={false} />
@@ -1408,7 +1410,7 @@ export default function App() {
                     <span className="text-[10px]">이미지 없음</span>
                   </div>
                 ) : files.map((file, idx) => (
-                  <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(); }}
+                  <div key={file.id} onClick={() => { setCurrentIndex(idx); resetViewer(true); }}
                     className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer group transition-all ${currentIndex === idx ? 'bg-white shadow-sm ring-1 ring-gray-200' : 'hover:bg-gray-200/60'}`}
                   >
                     <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
@@ -1643,7 +1645,7 @@ export default function App() {
               {/* 드래그 레이어: 네이티브 포인터 이벤트로 패닝 (Framer drag 제거 — 확대 시 범위 제한 문제 해결) */}
               <div
                 key={files[currentIndex].id}
-                className="relative flex items-center justify-center"
+                className="relative flex w-full h-full min-h-0 items-center justify-center"
                 style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
               >
                 <img
