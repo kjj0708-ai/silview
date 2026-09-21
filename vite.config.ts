@@ -13,7 +13,12 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: [
+          'favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg',
+          'silview.ico',
+          'silview-32.png', 'silview-48.png', 'silview-96.png',
+          'silview-128.png', 'silview-192.png', 'silview-256.png', 'silview-512.png',
+        ],
         manifest: {
           name: '실뷰(SilView) - 이미지 뷰어',
           short_name: '실뷰',
@@ -25,14 +30,44 @@ export default defineConfig(({mode}) => {
           scope: '/',
           icons: [
             {
-              src: '/new-icon.png',
-              sizes: '500x500',
+              src: '/silview.ico',
+              sizes: '16x16 32x32 48x48 256x256',
+              type: 'image/x-icon',
+              purpose: 'any'
+            },
+            {
+              src: '/silview-32.png',
+              sizes: '32x32',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/new-icon.png',
-              sizes: '500x500',
+              src: '/silview-48.png',
+              sizes: '48x48',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/silview-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/silview-256.png',
+              sizes: '256x256',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/silview-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/silview-512.png',
+              sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
             }
