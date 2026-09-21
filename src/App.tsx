@@ -18,6 +18,93 @@ interface ViewerFile {
 }
 
 const DEFAULT_VIEWER_ZOOM = 1;
+const IMAGE_FILE_PATTERN = /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff|avif)$/i;
+const FOLDER_HANDLE_DB_NAME = 'silview-file-access';
+const FOLDER_HANDLE_STORE_NAME = 'handles';
+const FOLDER_HANDLE_KEY = 'last-image-folder';
+
+function isImageFile(file: File) {
+  return file.type?.startsWith('image/') || IMAGE_FILE_PATTERN.test(file.name) || file.type === '';
+}
+
+function openFolderHandleDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      reject(new Error('IndexedDB is not available'));
+      return;
+    }
+    const request = window.indexedDB.open(FOLDER_HANDLE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore(FOLDER_HANDLE_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Could not open IndexedDB'));
+  });
+}
+
+async function saveFolderHandle(handle: any) {
+  try {
+    const db = await openFolderHandleDb();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(FOLDER_HANDLE_STORE_NAME, 'readwrite');
+      transaction.objectStore(FOLDER_HANDLE_STORE_NAME).put(handle, FOLDER_HANDLE_KEY);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('Could not save folder handle'));
+    });
+    db.close();
+  } catch {
+    // 폴더 저장은 편의 기능이므로 IndexedDB가 막힌 환경에서도 파일 열기는 계속합니다.
+  }
+}
+
+async function readFolderHandle(): Promise<any | null> {
+  try {
+    const db = await openFolderHandleDb();
+    const handle = await new Promise<any | null>((resolve, reject) => {
+      const transaction = db.transaction(FOLDER_HANDLE_STORE_NAME, 'readonly');
+      const request = transaction.objectStore(FOLDER_HANDLE_STORE_NAME).get(FOLDER_HANDLE_KEY);
+      request.onsuccess = () => resolve(request.result ?? null);
+      request.onerror = () => reject(request.error ?? new Error('Could not read folder handle'));
+    });
+    db.close();
+    return handle;
+  } catch {
+    return null;
+  }
+}
+
+async function hasReadPermission(handle: any) {
+  if (!handle) return false;
+  try {
+    if (typeof handle.queryPermission !== 'function') return true;
+    return await handle.queryPermission({ mode: 'read' }) === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+interface DirectoryImageEntry {
+  file: File;
+  handle: any;
+}
+
+async function collectDirectoryImages(directory: any): Promise<DirectoryImageEntry[]> {
+  const entries: DirectoryImageEntry[] = [];
+
+  const collect = async (handle: any): Promise<void> => {
+    for await (const entry of handle.values()) {
+      if (entry.kind === 'file') {
+        const file = await entry.getFile();
+        if (isImageFile(file)) entries.push({ file, handle: entry });
+      } else if (entry.kind === 'directory') {
+        await collect(entry);
+      }
+    }
+  };
+
+  await collect(directory);
+  return entries;
+}
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -89,6 +176,7 @@ export default function App() {
   const [brushColor, setBrushColor] = useState('#3b82f6');
   const [isDashed, setIsDashed] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
+  const [linkedFolderName, setLinkedFolderName] = useState<string | null>(null);
   const [showInstallInfo, setShowInstallInfo] = useState(false);
   const [undoHistory, setUndoHistory] = useState<string[]>([]);
   const [selectedObject, setSelectedObject] = useState<fabric.Object | null>(null);
@@ -157,43 +245,19 @@ export default function App() {
     };
   }, []);
 
-  // File Handler API — receives files when app is launched as default image viewer
-  useEffect(() => {
-    if (!('launchQueue' in window)) return;
-    (window as any).launchQueue.setConsumer(async (launchParams: any) => {
-      if (!launchParams.files?.length) return;
-      const newFiles: ViewerFile[] = [];
-      for (const fileHandle of launchParams.files) {
-        try {
-          const file: File = await fileHandle.getFile();
-          if (!file.type.startsWith('image/') && !/\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(file.name)) continue;
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
-            reader.readAsDataURL(file);
-          });
-          newFiles.push({
-            id: Math.random().toString(36).substr(2, 9),
-            url: dataUrl,
-            name: file.name,
-            size: file.size,
-          });
-        } catch { /* 접근 불가 파일 무시 */ }
-      }
-      if (!newFiles.length) return;
-      setFiles(prev => {
-        // Navigate to the first newly opened file
-        setCurrentIndex(prev.length);
-        return [...prev, ...newFiles];
-      });
-      window.focus();
-    });
-  }, []);
-
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // 저장된 폴더가 현재도 읽기 가능하면 메뉴에 연결 상태를 표시합니다.
+  useEffect(() => {
+    readFolderHandle().then(async (handle) => {
+      if (handle && await hasReadPermission(handle)) {
+        setLinkedFolderName(handle.name || '연결된 폴더');
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -245,9 +309,12 @@ export default function App() {
     }
   }, [files.length, currentIndex]);
 
-  const loadImageFiles = useCallback(async (inputFiles: File[]) => {
+  const loadImageFiles = useCallback(async (
+    inputFiles: File[],
+    options: { focusName?: string; replaceExisting?: boolean } = {},
+  ) => {
     const filesArray = inputFiles
-      .filter(f => f.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(f.name) || f.type === '')
+      .filter(isImageFile)
       .sort((a, b) => {
         const result = a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
         return sortOrder === 'asc' ? result : -result;
@@ -270,8 +337,14 @@ export default function App() {
     );
 
     setFiles(prev => {
-      setCurrentIndex(prev.length);
-      return [...prev, ...newFiles];
+      const replaceExisting = options.replaceExisting === true;
+      const offset = replaceExisting ? 0 : prev.length;
+      const focusedBatchIndex = options.focusName
+        ? newFiles.findIndex(file => file.name === options.focusName)
+        : -1;
+      const targetIndex = focusedBatchIndex >= 0 ? offset + focusedBatchIndex : offset;
+      setCurrentIndex(targetIndex);
+      return replaceExisting ? newFiles : [...prev, ...newFiles];
     });
     resetViewer();
     setShowFileMenu(false);
@@ -312,28 +385,73 @@ export default function App() {
     try {
       // 업로드가 아닌 읽기 전용 접근을 사용해 Chrome의 대량 업로드 확인창을 피합니다.
       const directory = await picker.call(window, { mode: 'read' });
-      const imageFiles: File[] = [];
-
-      const collectFiles = async (handle: any): Promise<void> => {
-        for await (const entry of handle.values()) {
-          if (entry.kind === 'file') {
-            const file = await entry.getFile();
-            if (file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff)$/i.test(file.name)) {
-              imageFiles.push(file);
-            }
-          } else if (entry.kind === 'directory') {
-            await collectFiles(entry);
-          }
-        }
-      };
-
-      await collectFiles(directory);
-      await loadImageFiles(imageFiles);
+      await saveFolderHandle(directory);
+      setLinkedFolderName(directory.name || '연결된 폴더');
+      const entries = await collectDirectoryImages(directory);
+      await loadImageFiles(entries.map(entry => entry.file));
     } catch (error) {
       if ((error as DOMException)?.name !== 'AbortError') {
         console.error('폴더를 불러오지 못했습니다.', error);
       }
     }
+  }, [loadImageFiles]);
+
+  // File Handler API — 기본 이미지 앱으로 연 파일도 연결된 폴더에서 이어봅니다.
+  useEffect(() => {
+    if (!('launchQueue' in window)) return;
+    (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+      const fileHandles = launchParams.files as any[] | undefined;
+      if (!fileHandles?.length) return;
+
+      const firstHandle = fileHandles[0];
+      const savedDirectory = await readFolderHandle();
+      let launchedFileName = '';
+      try {
+        launchedFileName = (await firstHandle.getFile()).name;
+      } catch { /* 아래의 기존 단일 파일 경로에서 다시 읽습니다. */ }
+
+      // 사용자가 이전에 연결한 폴더의 권한이 남아 있고 현재 파일이 그 안에 있으면
+      // 폴더 전체를 다시 선택하지 않고 목록을 복원합니다.
+      if (savedDirectory && await hasReadPermission(savedDirectory)) {
+        try {
+          const entries = await collectDirectoryImages(savedDirectory);
+          let currentEntry: DirectoryImageEntry | undefined;
+          for (const entry of entries) {
+            try {
+              const isSameEntry = typeof entry.handle.isSameEntry === 'function'
+                ? await entry.handle.isSameEntry(firstHandle)
+                : entry.file.name === launchedFileName;
+              if (isSameEntry) {
+                currentEntry = entry;
+                break;
+              }
+            } catch { /* 접근할 수 없는 항목은 건너뜁니다. */ }
+          }
+
+          if (currentEntry) {
+            setLinkedFolderName(savedDirectory.name || '연결된 폴더');
+            await loadImageFiles(entries.map(entry => entry.file), {
+              focusName: currentEntry.file.name,
+              replaceExisting: true,
+            });
+            window.focus();
+            return;
+          }
+        } catch { /* 저장된 폴더가 삭제되었거나 접근 권한이 없으면 단일 파일로 엽니다. */ }
+      }
+
+      // 폴더를 연결하지 않았거나 권한 확인이 필요한 경우의 기존 호환 경로입니다.
+      const newFiles: File[] = [];
+      for (const fileHandle of fileHandles) {
+        try {
+          const file: File = await fileHandle.getFile();
+          if (isImageFile(file)) newFiles.push(file);
+        } catch { /* 접근 불가 파일 무시 */ }
+      }
+      if (!newFiles.length) return;
+      await loadImageFiles(newFiles);
+      window.focus();
+    });
   }, [loadImageFiles]);
 
   const onDrop = (e: React.DragEvent) => {
@@ -1084,7 +1202,7 @@ export default function App() {
                   >
                     {[
                       { isFile: true, Icon: Upload, label: '이미지 열기' },
-                      { isFile: false, onClick: openFolder, Icon: FolderOpen, label: '폴더 열기' },
+                      { isFile: false, onClick: openFolder, Icon: FolderOpen, label: '폴더 열기·이어보기 연결' },
                     ].map(({ isFile, onClick, Icon, label }) => (
                       isFile ? (
                         <div key={label} className="relative overflow-hidden w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700 cursor-pointer">
@@ -1097,6 +1215,13 @@ export default function App() {
                         </button>
                       )
                     ))}
+                    <div className="px-3 pt-1 pb-1.5 text-[10px] leading-relaxed text-gray-400">
+                      {linkedFolderName ? (
+                        <><span className="text-blue-500 font-semibold">이어보기 연결됨</span><br />{linkedFolderName}</>
+                      ) : (
+                        <>폴더를 한 번 연결하면<br />기본 이미지 열기에서도 이어볼 수 있습니다.</>
+                      )}
+                    </div>
                     {files.length > 0 && (
                       <>
                         <div className="h-px bg-gray-100 my-1 mx-3" />
