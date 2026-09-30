@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="680" viewBox="0 0 1080 680">
+  <rect width="1080" height="680" fill="#f4f5f7"/>
+  <rect x="40" y="34" width="1000" height="612" rx="18" fill="white"/>
+  <g font-family="Malgun Gothic, sans-serif">
+    <text x="98" y="98" font-size="17" font-weight="700" fill="#64748b">업무 메모 · 공유용 예시</text>
+    <text x="98" y="154" font-size="35" font-weight="700" fill="#142238">자료 공유 전, 확인해주세요.</text>
+    <path d="M98 189h880" stroke="#e2e8f0" stroke-width="2"/>
+    <rect x="98" y="224" width="884" height="148" rx="10" fill="#f6f8fb"/>
+    <text x="124" y="264" font-size="19" fill="#64748b">담당자</text>
+    <text x="282" y="264" font-size="23" font-weight="700" fill="#142238">김실뷰</text>
+    <text x="124" y="320" font-size="19" fill="#64748b">연락처</text>
+    <text x="282" y="320" font-size="23" fill="#142238">010-0000-0000</text>
+    <text x="98" y="430" font-size="24" font-weight="700" fill="#142238">공유할 때 확인할 내용</text>
+    <circle cx="112" cy="474" r="4" fill="#94a3b8"/>
+    <text x="132" y="482" font-size="21" fill="#475569">공유 대상에게 필요한 내용인지 확인하세요.</text>
+    <circle cx="112" cy="523" r="4" fill="#94a3b8"/>
+    <text x="132" y="531" font-size="21" fill="#475569">개인정보는 가리고, 중요한 부분은 표시하세요.</text>
+    <text x="98" y="603" font-size="16" fill="#94a3b8">위 이름과 연락처는 기능 설명을 위한 가상의 정보입니다.</text>
+  </g>
+</svg>

@@ -1,6 +1,6 @@
 # 실뷰 (SilView)
 
-광고 없는 이미지 뷰어와 간편 편집 도구입니다. 기존 웹/PWA 화면을 유지하면서 Windows 설치형을 함께 제공합니다.
+사진을 가리는 팝업 광고 없이 사용하는 이미지 뷰어와 간편 편집 도구입니다. 기존 웹/PWA 화면을 유지하면서 Windows 설치형을 함께 제공합니다. 제작자 소개 링크와 RSS는 포함되어 있습니다.
 
 ## Windows 설치형 1.0.0
 
@@ -58,3 +58,12 @@ npm run build
 ```
 
 웹 버전은 브라우저 보안 때문에 폴더 연결 절차가 필요합니다. 설치형의 로컬 파일 접근과는 별도입니다. `main` 브랜치 푸시 시 기존 GitHub Actions 웹 배포가 실행되며, Windows 설치 파일 배포는 별도로 진행합니다.
+
+## 상세페이지 개발
+
+제품 소개는 `public/promo.html`, 스타일과 비교 슬라이더는 `public/promo/`에서 관리합니다. `npm run dev` 후 `/promo.html`을 열어 확인합니다.
+
+- `/scripts/promo-responsive.html`: 개발 서버에서 320/375/768/1280px 반응형 확인. 이 점검 화면은 공개 빌드에 포함하지 않습니다.
+- `scripts/capture-promo.cjs`: `npm run build:desktop-ui` 후 `electron scripts/capture-promo.cjs`로 실제 앱 캡처와 편집 예시를 생성합니다. 가상의 이미지와 임시 프로필만 사용하며 사용자 파일은 열지 않습니다.
+- `node --test scripts/promo.test.cjs`: 버전·체크섬·링크·이미지·안내·제품 구성 회귀 검사.
+- 상세페이지 수정만으로 설치 파일 버전을 올리지 않습니다. 다운로드 버튼은 검증된 기존 설치 파일을 가리킵니다.

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>실뷰 상세페이지 반응형 확인</title>
+  <style>
+    body{margin:0;background:#e9ecf2;font:13px sans-serif}
+    nav{height:54px;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border-bottom:1px solid #ccd2de}
+    button{font:inherit;padding:7px 14px;border:1px solid #ccd2de;background:#fff;border-radius:4px;cursor:pointer}
+    button[aria-pressed=true]{background:#0d1266;color:#fff}
+    output{display:block;min-height:30px;padding:5px 10px;text-align:center;font-size:11px;color:#36445c}
+    iframe{display:block;border:0;width:375px;height:calc(100vh - 84px);margin:auto;background:#fff}
+  </style>
+</head>
+<body>
+  <!-- Development-only harness; Vite does not publish scripts/ in dist. -->
+  <nav aria-label="미리보기 화면 너비">
+    <button data-width="320" aria-pressed="false">320 px</button><button data-width="375" aria-pressed="true">375 px</button><button data-width="768" aria-pressed="false">768 px</button><button data-width="1280" aria-pressed="false">1280 px</button>
+  </nav>
+  <output role="status" aria-live="polite">화면 확인 중</output>
+  <iframe src="/promo.html" title="실뷰 상세페이지 반응형 미리보기"></iframe>
+  <script>
+    const frame=document.querySelector('iframe');
+    const audit=()=>{
+      const doc=frame.contentDocument;
+      if(!doc)return;
+      const screen=doc.documentElement;
+      const report={frameWidth:frame.getBoundingClientRect().width,clientWidth:screen.clientWidth,scrollWidth:screen.scrollWidth,horizontalOverflow:screen.scrollWidth>screen.clientWidth,heroColumns:frame.contentWindow.getComputedStyle(doc.querySelector('.hero-grid')).gridTemplateColumns,downloadColumns:frame.contentWindow.getComputedStyle(doc.querySelector('.download-options')).gridTemplateColumns};
+      document.querySelector('output').textContent=JSON.stringify(report);
+    };
+    frame.addEventListener('load',audit);
+    document.querySelector('nav').addEventListener('click',event=>{
+      const button=event.target.closest('button');
+      if(!button)return;
+      document.querySelector('iframe').style.width=button.dataset.width+'px';
+      document.querySelectorAll('button').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+      audit();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#bcdadf"/><stop offset="1" stop-color="#eff0d4"/></linearGradient>
+    <linearGradient id="lake" x2="0" y2="1"><stop stop-color="#83a9a2"/><stop offset="1" stop-color="#b6c6aa"/></linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="890" cy="180" r="68" fill="#f6e6b0"/>
+  <path d="M0 350 140 260 280 320 480 160 680 315 810 240 1020 335 1200 250V600H0Z" fill="#8baaa1"/>
+  <path d="M0 440 190 340 320 390 530 300 730 430 950 325 1200 450V650H0Z" fill="#486c62"/>
+  <path d="M0 510Q300 455 620 510T1200 485V800H0Z" fill="url(#lake)"/>
+  <path d="M520 560Q690 543 930 562M420 610Q665 590 1090 609M490 665Q690 647 1030 665" fill="none" stroke="#d9debe" stroke-width="4" opacity=".6"/>
+  <path d="M0 570Q260 605 375 800H0Z" fill="#284f43"/>
+  <path d="M0 637Q210 650 230 800H0Z" fill="#56775a"/>
+  <g fill="#24493b"><path d="m86 310-65 140h32l-44 92h145l-44-92h31Z"/><path d="m180 387-49 111h23l-35 76h114l-36-76h24Z"/></g>
+  <g stroke="#345642" stroke-width="13"><path d="M86 490v155M180 540v98"/></g>
+  <text x="1126" y="743" text-anchor="end" fill="#24493b" font-family="sans-serif" font-size="14" letter-spacing="4">A QUIET AFTERNOON</text>
+</svg>
