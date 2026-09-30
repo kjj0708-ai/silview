@@ -29,6 +29,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Check source and download page
+        run: npm run lint && npm run test:desktop && node --test scripts/promo.test.cjs
 
       - name: Build
         run: npm run build

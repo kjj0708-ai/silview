@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import type { DesktopLibrary } from './desktop';
 import { motion, AnimatePresence } from 'motion/react';
 import * as fabric from 'fabric';
 import {
@@ -203,6 +204,10 @@ function ChoshgBanner() {
 }
 
 export default function App() {
+  const desktop = window.silviewDesktop;
+  const [desktopVersion, setDesktopVersion] = useState('');
+  const [desktopError, setDesktopError] = useState<string | null>(null);
+  const desktopRevisionRef = useRef(-1);
   const [files, setFiles] = useState<ViewerFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [zoom, setZoom] = useState(DEFAULT_VIEWER_ZOOM);
@@ -251,6 +256,7 @@ export default function App() {
 
   // 크롬 확장프로그램 연동 (패널 iframe + 새 탭 모두 window.postMessage로 통일)
   useEffect(() => {
+    if (desktop) return;
     const fromExt = new URLSearchParams(window.location.search).get('from_ext');
 
     // 이미지 수신 — ts로 중복 방지하며 여러 장 누적
@@ -296,6 +302,7 @@ export default function App() {
 
   // 저장된 폴더가 현재도 읽기 가능하면 메뉴에 연결 상태를 표시합니다.
   useEffect(() => {
+    if (desktop) return;
     readFolderHandles().then(async (handles) => {
       for (const handle of [...handles].reverse()) {
         if (await hasReadPermission(handle)) {
@@ -307,7 +314,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.title = '실뷰 - 광고 없는 간편 편집 기능 이미지 뷰어';
+    document.title = desktop ? '실뷰 - Windows 이미지 뷰어' : '실뷰 - 광고 없는 간편 편집 기능 이미지 뷰어';
+    if (desktop) return;
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -414,8 +422,12 @@ export default function App() {
 
   const handleFiles = useCallback(async (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
+    if (desktop) {
+      await desktop.openFiles(Array.from(selectedFiles));
+      return;
+    }
     await loadImageFiles(Array.from(selectedFiles));
-  }, [loadImageFiles]);
+  }, [desktop, loadImageFiles]);
 
   const restoreLaunchedFolder = useCallback(async (directory: any, launchedHandle: any) => {
     if (!await containsLaunchedFile(directory, launchedHandle)) return false;
@@ -506,7 +518,18 @@ export default function App() {
     } catch { /* 선택한 폴더가 다른 경우 현재 이미지를 유지합니다. */ }
   }, [folderResumeIssue, loadImageFiles]);
 
+  const openImages = useCallback(() => {
+    setShowFileMenu(false);
+    if (desktop) void desktop.openImages();
+    else fileInputRef.current?.click();
+  }, [desktop]);
+
   const openFolder = useCallback(async () => {
+    if (desktop) {
+      setShowFileMenu(false);
+      await desktop.openFolder();
+      return;
+    }
     const picker = (window as typeof window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
     }).showDirectoryPicker;
@@ -537,10 +560,11 @@ export default function App() {
         console.error('폴더를 불러오지 못했습니다.', error);
       }
     }
-  }, [folderResumeIssue, loadImageFiles, restoreLaunchedFolder]);
+  }, [desktop, folderResumeIssue, loadImageFiles, restoreLaunchedFolder]);
 
   // File Handler API — 기본 이미지 앱으로 연 파일도 연결된 폴더에서 이어봅니다.
   useEffect(() => {
+    if (desktop) return;
     if (!('launchQueue' in window)) return;
     (window as any).launchQueue.setConsumer(async (launchParams: any) => {
       const fileHandles = launchParams.files as any[] | undefined;
@@ -578,7 +602,7 @@ export default function App() {
       setFolderResumeIssue(needsPermission ? 'permission' : 'select-folder');
       window.focus();
     });
-  }, [loadImageFiles, restoreLaunchedFolder]);
+  }, [desktop, loadImageFiles, restoreLaunchedFolder]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -590,6 +614,31 @@ export default function App() {
     if (!preserveZoom) setZoom(DEFAULT_VIEWER_ZOOM);
     setRotation(0); setFlip(false); setPosition({ x: 0, y: 0 }); setIsEditing(false);
   };
+
+  useEffect(() => {
+    if (!desktop) return;
+    const applyLibrary = (library: DesktopLibrary) => {
+      if (library.revision <= desktopRevisionRef.current) return;
+      desktopRevisionRef.current = library.revision;
+      const sorted = [...library.files].sort((a, b) => {
+        const result = a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? result : -result;
+      });
+      const selectedIndex = sorted.findIndex(file => file.id === library.selectedId);
+      setFiles(sorted);
+      setCurrentIndex(sorted.length ? Math.max(0, selectedIndex) : null);
+      setLinkedFolderName(library.folderName);
+      setDesktopVersion(library.version);
+      setFolderResumeIssue(null);
+      setDesktopError(null);
+      setShowFileMenu(false);
+      resetViewer(true);
+    };
+    const unsubscribeLibrary = desktop.onLibrary(applyLibrary);
+    const unsubscribeError = desktop.onError(setDesktopError);
+    desktop.getLibrary().then(applyLibrary).catch(() => setDesktopError('설치형 앱에 연결하지 못했습니다. 실뷰를 다시 실행해 주세요.'));
+    return () => { unsubscribeLibrary(); unsubscribeError(); };
+  }, [desktop, sortOrder]);
 
   const moveImage = useCallback((direction: -1 | 1) => {
     if (files.length <= 1) return;
@@ -619,9 +668,24 @@ export default function App() {
   };
 
   // 담긴 이미지 전체를 순차 다운로드
+  const downloadImage = async (url: string, name: string) => {
+    if (desktop) {
+      await desktop.saveImage(url, name);
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+  };
+
   const downloadAll = async () => {
     if (files.length === 0) return;
     setShowFileMenu(false);
+    if (desktop) {
+      await desktop.saveAll(files.map(file => ({ url: file.url, name: file.name })));
+      return;
+    }
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       const a = document.createElement('a');
@@ -896,10 +960,7 @@ export default function App() {
 
     // 다운로드 즉시 실행 (캔버스 복구 전 dataUrl 사용)
     const fileName = currentIndex !== null ? files[currentIndex].name : 'crop.png';
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = fileName.replace(/\.[^.]+$/, '') + '_crop.png';
-    a.click();
+    void downloadImage(dataUrl, fileName.replace(/\.[^.]+$/, '') + '_crop.png');
 
     fabric.Image.fromURL(dataUrl).then(fImg => {
       fImg.selectable = false;
@@ -1267,8 +1328,7 @@ export default function App() {
 
     fetch(dataUrl).then(r => r.blob()).then(blob => {
       setFiles(prev => { const n = [...prev]; n[currentIndex] = { ...n[currentIndex], url: dataUrl, size: blob.size }; return n; });
-      const link = document.createElement('a');
-      link.href = dataUrl; link.download = `edited_${files[currentIndex].name.replace(/\.[^.]+$/, '')}.png`; link.click();
+      void downloadImage(dataUrl, `edited_${files[currentIndex].name.replace(/\.[^.]+$/, '')}.png`);
       setIsEditing(false);
     });
   };
@@ -1309,6 +1369,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <img src={`${import.meta.env.BASE_URL}new-icon.png`} alt="실뷰" className="w-7 h-7 rounded-lg object-cover" />
             <span className="text-sm font-bold tracking-tight text-gray-900">실뷰</span>
+            {desktop && <span className="hidden md:inline text-[10px] text-gray-400">Windows {desktopVersion}</span>}
           </div>
 
           {/* Nav */}
@@ -1330,12 +1391,12 @@ export default function App() {
                   >
                     {[
                       { isFile: true, Icon: Upload, label: '이미지 열기' },
-                      { isFile: false, onClick: openFolder, Icon: FolderOpen, label: '폴더 열기·이어보기 연결' },
+                      { isFile: false, onClick: openFolder, Icon: FolderOpen, label: desktop ? '폴더 열기' : '폴더 열기·이어보기 연결' },
                     ].map(({ isFile, onClick, Icon, label }) => (
                       isFile ? (
                         <div key={label} className="relative overflow-hidden w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700 cursor-pointer">
                           <Icon size={13} className="text-gray-400 pointer-events-none" /> <span className="pointer-events-none">{label}</span>
-                          <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                          <button type="button" aria-label="이미지 열기" className="absolute inset-0 w-full h-full cursor-pointer" onClick={openImages} />
                         </div>
                       ) : (
                         <button key={label} onClick={onClick} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-gray-700">
@@ -1344,7 +1405,9 @@ export default function App() {
                       )
                     ))}
                     <div className="px-3 pt-1 pb-1.5 text-[10px] leading-relaxed text-gray-400">
-                      {linkedFolderName ? (
+                      {desktop ? (
+                        <>같은 폴더 자동 이어보기<br />{linkedFolderName || '이미지 하나를 열면 폴더 목록을 불러옵니다.'}</>
+                      ) : linkedFolderName ? (
                         <><span className="text-blue-500 font-semibold">이어보기 연결됨</span><br />{linkedFolderName}</>
                       ) : (
                         <>폴더를 한 번 연결하면<br />기본 이미지 열기에서도 이어볼 수 있습니다.</>
@@ -1359,8 +1422,8 @@ export default function App() {
                       </>
                     )}
                     <div className="h-px bg-gray-100 my-1 mx-3" />
-                    <button onClick={() => setShowInstallInfo(true)} className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2.5 transition-colors text-blue-600">
-                      <Monitor size={13} /> PC 앱으로 설치
+                    <button onClick={() => desktop ? desktop.openDefaultApps() : setShowInstallInfo(true)} className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2.5 transition-colors text-blue-600">
+                      <Monitor size={13} /> {desktop ? '기본 이미지 앱 설정' : 'PC 앱으로 설치'}
                     </button>
                     <div className="h-px bg-gray-100 my-1 mx-3" />
                     <button
@@ -1414,17 +1477,17 @@ export default function App() {
               <button onClick={() => setFlip(!flip)} className={`p-1.5 hover:bg-white hover:shadow-sm rounded-md transition-all ${flip ? 'text-blue-600' : 'text-gray-500'}`} title="좌우반전"><FlipHorizontal size={14} /></button>
               <div className="w-px h-3.5 bg-gray-300 mx-0.5" />
               <button onClick={() => setZoom(prev => Math.min(Math.max(0.1, prev - 0.2), 10))} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 hover:text-gray-800 transition-all" title="축소"><ZoomOut size={14} /></button>
-              <span className="text-[10px] font-mono w-10 text-center text-gray-600 font-bold">{Math.round(zoom * 100)}%</span>
+              <span data-testid="viewer-zoom" className="text-[10px] font-mono w-10 text-center text-gray-600 font-bold">{Math.round(zoom * 100)}%</span>
               <button onClick={() => setZoom(prev => Math.min(Math.max(0.1, prev + 0.2), 10))} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-gray-500 hover:text-gray-800 transition-all" title="확대"><ZoomIn size={14} /></button>
             </div>
           )}
           <div className="relative overflow-hidden p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors cursor-pointer" title="이미지 열기">
             <Upload size={16} className="pointer-events-none" />
-            <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+            <button type="button" aria-label="이미지 열기" className="absolute inset-0 w-full h-full cursor-pointer" onClick={openImages} />
           </div>
           {currentIndex !== null && (
             <button
-              onClick={() => { const a = document.createElement('a'); a.href = files[currentIndex].url; a.download = files[currentIndex].name; a.click(); }}
+              onClick={() => { void downloadImage(files[currentIndex].url, files[currentIndex].name); }}
               className="p-2 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-lg transition-colors" title="다운로드"
             >
               <Download size={16} />
@@ -1433,6 +1496,7 @@ export default function App() {
           {currentIndex !== null && !isEditing && !isMobile && (
             <button
               onClick={() => {
+                if (desktop) { void desktop.printImage(files[currentIndex].url); return; }
                 const win = window.open('', '_blank');
                 if (!win) return;
                 win.document.write(`<!DOCTYPE html><html><head><title>인쇄</title><style>*{margin:0;padding:0;}body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;}img{max-width:100%;max-height:100vh;object-fit:contain;}@media print{body{margin:0;}img{width:100%;height:auto;}}</style></head><body><img src="${files[currentIndex].url}" onload="window.print();window.close()"/></body></html>`);
@@ -1455,6 +1519,13 @@ export default function App() {
           <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFolderInput(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
+
+      {desktopError && (
+        <div role="alert" className="flex items-center gap-3 border-b border-red-100 bg-red-50 px-4 py-2 text-xs text-red-800 flex-shrink-0">
+          <span className="flex-1">{desktopError}</span>
+          <button onClick={() => setDesktopError(null)} title="안내 닫기"><X size={14} /></button>
+        </div>
+      )}
 
       {folderResumeIssue && currentIndex !== null && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-950 flex-shrink-0">
@@ -1718,14 +1789,14 @@ export default function App() {
                     <div className="px-6 py-3 text-sm font-bold text-center pointer-events-none whitespace-nowrap" style={{ color: '#ffd700' }}>
                       이미지 불러오기
                     </div>
-                    <input type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+                    <button type="button" aria-label="이미지 불러오기" className="absolute inset-0 w-full h-full cursor-pointer" onClick={openImages} />
                   </div>
                   <button onClick={openFolder} className="px-6 py-3 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all whitespace-nowrap">
                     폴더 열기
                   </button>
                 </div>
                 <div className="grid grid-cols-3 gap-3 pt-1 border-t border-gray-100">
-                  {[['광고 없음', Upload], ['이미지 편집', Edit3], ['PWA 지원', Monitor]].map(([label, Icon]: any) => (
+                  {[['광고 없음', Upload], ['이미지 편집', Edit3], [desktop ? 'Windows 설치형' : 'PWA 지원', Monitor]].map(([label, Icon]: any) => (
                     <div key={label} className="text-center py-2">
                       <Icon size={16} className="mx-auto text-gray-300 mb-1.5" />
                       <div className="text-[10px] text-gray-400 font-medium">{label}</div>
@@ -1739,6 +1810,7 @@ export default function App() {
             /* ── Image Viewer ────────────────────────────── */
             <div
               ref={containerRef}
+              data-testid="viewer-viewport"
               className="flex-1 relative flex items-center justify-center overflow-hidden touch-none p-4"
               style={{ background: 'radial-gradient(ellipse at 50% 40%, #252535 0%, #15151f 100%)', cursor: 'grab' }}
               onPointerDown={(e) => {
@@ -1797,6 +1869,7 @@ export default function App() {
                 style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
               >
                 <img
+                  data-testid="viewer-image"
                   src={files[currentIndex].url}
                   alt={files[currentIndex].name}
                   className="max-w-full max-h-full object-contain select-none"

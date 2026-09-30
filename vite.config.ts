@@ -6,11 +6,23 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  const desktop = mode === 'desktop';
   return {
+    build: { outDir: desktop ? 'dist-desktop' : 'dist' },
     plugins: [
+      ...(desktop ? [{
+        name: 'desktop-local-fonts',
+        enforce: 'pre' as const,
+        transform: (code: string, id: string) => id.split('?')[0].replaceAll('\\', '/').endsWith('/src/index.css')
+          ? code.replace(/@import\s+url\(['"]https:\/\/fonts.googleapis.com[^'"]+['"]\);?/g, '')
+          : undefined,
+      }] : []),
       react(),
       tailwindcss(),
-      VitePWA({
+      ...(desktop ? [{
+        name: 'desktop-html',
+        transformIndexHtml: (html: string) => html.replace(/\s*<link rel="manifest"[^>]*>/, ''),
+      }] : [VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
         includeAssets: [
@@ -94,10 +106,10 @@ export default defineConfig(({mode}) => {
         devOptions: {
           enabled: true
         }
-      })
+      })])
     ],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(desktop ? '' : env.GEMINI_API_KEY),
     },
     resolve: {
       alias: {
