@@ -25,6 +25,10 @@ export default defineConfig(({mode}) => {
       }] : [VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
+        workbox: {
+          // The standalone download page must not be replaced by the viewer shell.
+          navigateFallbackDenylist: [/^\/promo(?:\.html)?(?:[/?]|$)/],
+        },
         includeAssets: [
           'favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg',
           'silview.ico',

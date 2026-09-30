@@ -33,3 +33,11 @@ test('local release matches the checksum published on the promo page', t => {
   const checksum = createHash('sha256').update(fs.readFileSync(installer)).digest('hex').toUpperCase();
   assert.ok(html.includes(checksum), 'Download page checksum must match the exact released EXE');
 });
+
+test('PWA viewer navigation excludes the standalone promo page', () => {
+  const config = fs.readFileSync(path.join(root, 'vite.config.ts'), 'utf8');
+  assert.ok(config.includes('navigateFallbackDenylist: [/^\\/promo'));
+  const excluded = /^\/promo(?:\.html)?(?:[/?]|$)/;
+  assert.equal(excluded.test('/promo.html?v=1.0.0'), true);
+  assert.equal(excluded.test('/'), false);
+});
