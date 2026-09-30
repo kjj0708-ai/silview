@@ -22,6 +22,7 @@ const IMAGE_FILE_PATTERN = /\.(jpe?g|png|gif|webp|svg|heic|heif|bmp|tiff|avif)$/
 const FOLDER_HANDLE_DB_NAME = 'silview-file-access';
 const FOLDER_HANDLE_STORE_NAME = 'handles';
 const FOLDER_HANDLE_KEY = 'last-image-folder';
+const FOLDER_HANDLES_KEY = 'connected-image-folders';
 
 function isImageFile(file: File) {
   return file.type?.startsWith('image/') || IMAGE_FILE_PATTERN.test(file.name) || file.type === '';
@@ -44,10 +45,19 @@ function openFolderHandleDb(): Promise<IDBDatabase> {
 
 async function saveFolderHandle(handle: any) {
   try {
+    const savedHandles = await readFolderHandles();
+    const otherHandles: any[] = [];
+    for (const savedHandle of savedHandles) {
+      try {
+        if (typeof savedHandle?.isSameEntry === 'function' && await savedHandle.isSameEntry(handle)) continue;
+      } catch { /* 이전 폴더가 삭제되어도 새 폴더는 저장합니다. */ }
+      otherHandles.push(savedHandle);
+    }
     const db = await openFolderHandleDb();
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(FOLDER_HANDLE_STORE_NAME, 'readwrite');
       transaction.objectStore(FOLDER_HANDLE_STORE_NAME).put(handle, FOLDER_HANDLE_KEY);
+      transaction.objectStore(FOLDER_HANDLE_STORE_NAME).put([...otherHandles, handle].slice(-20), FOLDER_HANDLES_KEY);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error ?? new Error('Could not save folder handle'));
     });
@@ -70,6 +80,25 @@ async function readFolderHandle(): Promise<any | null> {
     return handle;
   } catch {
     return null;
+  }
+}
+
+async function readFolderHandles(): Promise<any[]> {
+  try {
+    const db = await openFolderHandleDb();
+    const handles = await new Promise<any[]>((resolve, reject) => {
+      const transaction = db.transaction(FOLDER_HANDLE_STORE_NAME, 'readonly');
+      const request = transaction.objectStore(FOLDER_HANDLE_STORE_NAME).get(FOLDER_HANDLES_KEY);
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error ?? new Error('Could not read folder handles'));
+    });
+    db.close();
+    if (handles.length) return handles;
+    const legacyHandle = await readFolderHandle();
+    return legacyHandle ? [legacyHandle] : [];
+  } catch {
+    const legacyHandle = await readFolderHandle();
+    return legacyHandle ? [legacyHandle] : [];
   }
 }
 
@@ -104,6 +133,18 @@ async function collectDirectoryImages(directory: any): Promise<DirectoryImageEnt
 
   await collect(directory);
   return entries;
+}
+
+async function containsLaunchedFile(directory: any, launchedHandle: any): Promise<boolean> {
+  for await (const entry of directory.values()) {
+    if (entry.kind === 'file' && entry.name === launchedHandle.name) {
+      try {
+        if (await entry.isSameEntry(launchedHandle)) return true;
+      } catch { /* 접근할 수 없는 항목은 건너뜁니다. */ }
+    }
+    if (entry.kind === 'directory' && await containsLaunchedFile(entry, launchedHandle)) return true;
+  }
+  return false;
 }
 
 function formatSize(bytes: number) {
@@ -177,6 +218,7 @@ export default function App() {
   const [isDashed, setIsDashed] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [linkedFolderName, setLinkedFolderName] = useState<string | null>(null);
+  const [folderResumeIssue, setFolderResumeIssue] = useState<'permission' | 'select-folder' | 'wrong-folder' | null>(null);
   const [showInstallInfo, setShowInstallInfo] = useState(false);
   const [undoHistory, setUndoHistory] = useState<string[]>([]);
   const [selectedObject, setSelectedObject] = useState<fabric.Object | null>(null);
@@ -197,6 +239,7 @@ export default function App() {
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const launchedFileHandleRef = useRef<any>(null);
   // 생성한 blob URL 추적 (언마운트 시 정리)
   const blobUrlsRef = useRef<Set<string>>(new Set());
   // Fix: store cleanup so we can remove keydown listener when editor closes
@@ -253,9 +296,12 @@ export default function App() {
 
   // 저장된 폴더가 현재도 읽기 가능하면 메뉴에 연결 상태를 표시합니다.
   useEffect(() => {
-    readFolderHandle().then(async (handle) => {
-      if (handle && await hasReadPermission(handle)) {
-        setLinkedFolderName(handle.name || '연결된 폴더');
+    readFolderHandles().then(async (handles) => {
+      for (const handle of [...handles].reverse()) {
+        if (await hasReadPermission(handle)) {
+          setLinkedFolderName(handle.name || '연결된 폴더');
+          break;
+        }
       }
     });
   }, []);
@@ -371,6 +417,95 @@ export default function App() {
     await loadImageFiles(Array.from(selectedFiles));
   }, [loadImageFiles]);
 
+  const restoreLaunchedFolder = useCallback(async (directory: any, launchedHandle: any) => {
+    if (!await containsLaunchedFile(directory, launchedHandle)) return false;
+    const entries = await collectDirectoryImages(directory);
+    for (const entry of entries) {
+      try {
+        if (await entry.handle.isSameEntry(launchedHandle)) {
+          await loadImageFiles(entries.map(item => item.file), {
+            focusName: entry.file.name,
+            replaceExisting: true,
+          });
+          setLinkedFolderName(directory.name || '연결된 폴더');
+          setFolderResumeIssue(null);
+          return true;
+        }
+      } catch { /* 읽을 수 없는 항목은 건너뜁니다. */ }
+    }
+    return false;
+  }, [loadImageFiles]);
+
+  const reconnectSavedFolder = useCallback(async () => {
+    const savedDirectories = await readFolderHandles();
+    let directory: any = null;
+    for (const savedDirectory of [...savedDirectories].reverse()) {
+      if (!await hasReadPermission(savedDirectory)) {
+        directory = savedDirectory;
+        break;
+      }
+    }
+    const launchedHandle = launchedFileHandleRef.current;
+    if (!directory || !launchedHandle) {
+      setFolderResumeIssue('select-folder');
+      return;
+    }
+    try {
+      const permission = typeof directory.requestPermission === 'function'
+        ? await directory.requestPermission({ mode: 'read' })
+        : 'granted';
+      if (permission !== 'granted') return;
+      if (await restoreLaunchedFolder(directory, launchedHandle)) return;
+      setFolderResumeIssue('select-folder');
+    } catch {
+      setFolderResumeIssue('select-folder');
+    }
+  }, [restoreLaunchedFolder]);
+
+  const connectLaunchedFolder = useCallback(async () => {
+    const picker = (window as typeof window & {
+      showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
+    }).showDirectoryPicker;
+    if (!picker) {
+      folderInputRef.current?.click();
+      return;
+    }
+    try {
+      const directory = await picker.call(window, { mode: 'read' });
+      const launchedHandle = launchedFileHandleRef.current;
+      if (!launchedHandle || !await restoreLaunchedFolder(directory, launchedHandle)) {
+        setFolderResumeIssue('wrong-folder');
+        return;
+      }
+      await saveFolderHandle(directory);
+    } catch (error) {
+      if ((error as DOMException)?.name !== 'AbortError') {
+        console.error('탐색기에서 연 파일의 폴더를 연결하지 못했습니다.', error);
+      }
+    }
+  }, [restoreLaunchedFolder]);
+
+  const handleFolderInput = useCallback(async (selectedFiles: FileList | null) => {
+    if (!selectedFiles) return;
+    const selected = Array.from(selectedFiles);
+    const launchedHandle = folderResumeIssue ? launchedFileHandleRef.current : null;
+    if (!launchedHandle) {
+      await loadImageFiles(selected);
+      return;
+    }
+    try {
+      const launchedFile: File = await launchedHandle.getFile();
+      const matchingFile = selected.find(file => file.name === launchedFile.name
+        && file.size === launchedFile.size && file.lastModified === launchedFile.lastModified);
+      if (matchingFile) {
+        await loadImageFiles(selected, { focusName: matchingFile.name, replaceExisting: true });
+        setFolderResumeIssue(null);
+      } else {
+        setFolderResumeIssue('wrong-folder');
+      }
+    } catch { /* 선택한 폴더가 다른 경우 현재 이미지를 유지합니다. */ }
+  }, [folderResumeIssue, loadImageFiles]);
+
   const openFolder = useCallback(async () => {
     const picker = (window as typeof window & {
       showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<any>;
@@ -385,6 +520,14 @@ export default function App() {
     try {
       // 업로드가 아닌 읽기 전용 접근을 사용해 Chrome의 대량 업로드 확인창을 피합니다.
       const directory = await picker.call(window, { mode: 'read' });
+      if (folderResumeIssue && launchedFileHandleRef.current) {
+        if (await restoreLaunchedFolder(directory, launchedFileHandleRef.current)) {
+          await saveFolderHandle(directory);
+        } else {
+          setFolderResumeIssue('wrong-folder');
+        }
+        return;
+      }
       await saveFolderHandle(directory);
       setLinkedFolderName(directory.name || '연결된 폴더');
       const entries = await collectDirectoryImages(directory);
@@ -394,7 +537,7 @@ export default function App() {
         console.error('폴더를 불러오지 못했습니다.', error);
       }
     }
-  }, [loadImageFiles]);
+  }, [folderResumeIssue, loadImageFiles, restoreLaunchedFolder]);
 
   // File Handler API — 기본 이미지 앱으로 연 파일도 연결된 폴더에서 이어봅니다.
   useEffect(() => {
@@ -404,36 +547,18 @@ export default function App() {
       if (!fileHandles?.length) return;
 
       const firstHandle = fileHandles[0];
-      const savedDirectory = await readFolderHandle();
-      let launchedFileName = '';
-      try {
-        launchedFileName = (await firstHandle.getFile()).name;
-      } catch { /* 아래의 기존 단일 파일 경로에서 다시 읽습니다. */ }
+      launchedFileHandleRef.current = firstHandle;
+      const savedDirectories = await readFolderHandles();
 
-      // 사용자가 이전에 연결한 폴더의 권한이 남아 있고 현재 파일이 그 안에 있으면
-      // 폴더 전체를 다시 선택하지 않고 목록을 복원합니다.
-      if (savedDirectory && await hasReadPermission(savedDirectory)) {
+      // 이전에 연결한 폴더들을 최근 순서로 확인합니다.
+      let needsPermission = false;
+      for (const savedDirectory of [...savedDirectories].reverse()) {
+        if (!await hasReadPermission(savedDirectory)) {
+          needsPermission = true;
+          continue;
+        }
         try {
-          const entries = await collectDirectoryImages(savedDirectory);
-          let currentEntry: DirectoryImageEntry | undefined;
-          for (const entry of entries) {
-            try {
-              const isSameEntry = typeof entry.handle.isSameEntry === 'function'
-                ? await entry.handle.isSameEntry(firstHandle)
-                : entry.file.name === launchedFileName;
-              if (isSameEntry) {
-                currentEntry = entry;
-                break;
-              }
-            } catch { /* 접근할 수 없는 항목은 건너뜁니다. */ }
-          }
-
-          if (currentEntry) {
-            setLinkedFolderName(savedDirectory.name || '연결된 폴더');
-            await loadImageFiles(entries.map(entry => entry.file), {
-              focusName: currentEntry.file.name,
-              replaceExisting: true,
-            });
+          if (await restoreLaunchedFolder(savedDirectory, firstHandle)) {
             window.focus();
             return;
           }
@@ -450,9 +575,10 @@ export default function App() {
       }
       if (!newFiles.length) return;
       await loadImageFiles(newFiles);
+      setFolderResumeIssue(needsPermission ? 'permission' : 'select-folder');
       window.focus();
     });
-  }, [loadImageFiles]);
+  }, [loadImageFiles, restoreLaunchedFolder]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1326,9 +1452,31 @@ export default function App() {
             </button>
           )}
           <input ref={fileInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
-          <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+          <input ref={folderInputRef} type="file" multiple accept="image/jpeg, image/png, image/webp, image/gif, image/bmp, image/svg+xml" {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>} className="sr-only" onChange={e => { handleFolderInput(e.target.files); e.target.value = ''; }} />
         </div>
       </header>
+
+      {folderResumeIssue && currentIndex !== null && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-950 flex-shrink-0">
+          <FolderOpen size={15} className="text-blue-600 flex-shrink-0" />
+          <span className="flex-1 min-w-[180px]">
+            {folderResumeIssue === 'permission'
+              ? '이전에 연결한 폴더의 읽기 권한이 풀려 현재 파일 한 장만 열렸습니다.'
+              : folderResumeIssue === 'wrong-folder'
+                ? '선택한 폴더에서 현재 이미지를 찾지 못했습니다. 탐색기에서 열었던 이미지가 있는 폴더를 선택해 주세요.'
+                : '현재 이미지의 폴더가 연결되어 있지 않아 한 장만 열렸습니다. 해당 폴더를 연결하면 이어볼 수 있습니다.'}
+          </span>
+          <button
+            onClick={folderResumeIssue === 'permission' ? reconnectSavedFolder : connectLaunchedFolder}
+            className="rounded-md bg-blue-600 px-2.5 py-1.5 font-semibold text-white hover:bg-blue-700"
+          >
+            {folderResumeIssue === 'permission' ? '폴더 권한 다시 허용' : '폴더 선택하기'}
+          </button>
+          {folderResumeIssue === 'permission' && (
+            <button onClick={connectLaunchedFolder} className="font-medium text-blue-700 hover:underline">다른 폴더 선택</button>
+          )}
+        </div>
+      )}
 
       {/* ── Mobile Gallery Strip (상단 고정 행) ──────────────── */}
       <AnimatePresence>
